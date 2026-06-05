@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gordian - Premium Framer portfolio</title>
+  <link rel="icon" id="siteIcon" type="image/png" href="/uploads/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chivo:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <!-- Skeleton Loading Screen -->
+  <div id="skeletonLoading" style="position:fixed;top:0;left:0;right:0;bottom:0;z-index:9999;background:#f5f5f5;display:flex;flex-direction:column;transition:opacity 0.4s ease;">
+    <div style="flex:1;position:relative;overflow:hidden;">
+      <div style="position:absolute;top:0;left:0;right:0;bottom:0;background:linear-gradient(110deg,#f0f0f0 8%,#e0e0e0 18%,#f0f0f0 33%);background-size:200% 100%;animation:skeletonShimmer 1.5s infinite;"></div>
+    </div>
+  </div>
+  <style>
+    @keyframes skeletonShimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
+    }
+  </style>
+
+  <!-- Fixed Bottom Bar -->
+  <nav class="bottom-bar">
+    <div class="bottom-bar-left">
+      <a href="#home" class="brand-link" id="navBrand">©2024 GORDIAN</a>
+    </div>
+    <div class="bottom-bar-right">
+      <a href="#home" class="nav-link"><span class="nav-text">HOME</span><span class="nav-text-cn">首页</span></a>
+      <a href="#about" class="nav-link"><span class="nav-text">ABOUT</span><span class="nav-text-cn">关于</span></a>
+      <a href="#experience" class="nav-link"><span class="nav-text">EXP</span><span class="nav-text-cn">经历</span></a>
+      <a href="#works" class="nav-link"><span class="nav-text">WORKS</span><span class="nav-text-cn">作品</span></a>
+      <a href="#contact" class="nav-link"><span class="nav-text">CONTACT</span><span class="nav-text-cn">联系</span></a>
+    </div>
+  </nav>
+
+  <!-- Hero Section -->
+  <section id="home" class="hero-section">
+    <div class="hero-image">
+      <img id="heroImage" src="" alt="">
+    </div>
+    <div class="hero-spotlight"></div>
+    <div class="hero-spotlight-glow"></div>
+    <div class="hero-overlay">
+      <div class="hero-top-left">
+        <div class="hero-title" id="heroTopLeftTitle"></div>
+      </div>
+      <div class="hero-top-right">
+        <div class="hero-title" id="heroTopRightTitle"></div>
+      </div>
+      <div class="hero-bottom-left">
+        <div class="hero-subtitle" id="heroBottomLeftSubtitle"></div>
+        <div class="hero-desc" id="heroBottomLeftDesc"></div>
+      </div>
+      <div class="hero-bottom-right">
+        <div class="hero-desc" id="heroBottomRightDesc"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Info Bar -->
+  <section class="info-bar">
+    <div class="info-item">
+      <span class="info-label">WECHAT:</span>
+      <div class="info-value" id="infoSocial"></div>
+    </div>
+    <div class="info-item">
+      <span class="info-label">PHONE:</span>
+      <div class="info-value" id="infoPhone"></div>
+    </div>
+    <div class="info-item">
+      <span class="info-label">LOCATION:</span>
+      <div class="info-value">
+        <span id="infoLocation"></span>
+      </div>
+    </div>
+    <div class="info-item">
+      <span class="info-label">EXPERTISE:</span>
+      <div class="info-value" id="infoExpertise"></div>
+    </div>
+  </section>
+
+  <!-- About Section -->
+  <section id="about" class="about-section">
+    <div class="section-header">
+      <h4 class="section-title" id="aboutTitle">ABOUT</h4>
+      <h4 class="section-number" id="aboutNumber">S01</h4>
+    </div>
+    <div class="about-content">
+      <p class="about-text" id="aboutText"></p>
+      <a id="resumeBtn" class="resume-download-btn" href="" download style="display:none;">
+        <span class="btn-text">下载简历</span>
+        <span class="btn-circle">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg>
+        </span>
+      </a>
+      <div class="about-visual">
+        <div class="rotation-images">
+          <div class="circle-image circle-1">
+            <div class="circle-inner">
+              <img id="aboutImage1" src="" alt="About image">
+            </div>
+          </div>
+          <div class="circle-image circle-2">
+            <div class="circle-inner">
+              <img id="aboutImage2" src="" alt="About image">
+            </div>
+          </div>
+        </div>
+        <div class="stats">
+          <div class="stat-item stat-left">
+            <span class="stat-label" id="aboutStatLabel1">Works</span>
+            <span class="stat-number" id="aboutWorks">08</span>
+          </div>
+          <div class="stat-item stat-right">
+            <span class="stat-label" id="aboutStatLabel2">Years</span>
+            <span class="stat-number" id="aboutYears">03</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Experience Section -->
+  <section id="experience" class="experience-section">
+    <div class="section-header">
+      <h4 class="section-title" id="expSectionTitle">工作经历</h4>
+      <h4 class="section-number" id="expSectionNumber">S02</h4>
+    </div>
+    <div class="experience-list" id="experienceList"></div>
+  </section>
+
+  <!-- Works Section -->
+  <section id="works" class="works-section">
+    <div class="section-header">
+      <h4 class="section-title">WORKS</h4>
+      <h4 class="section-number">S03</h4>
+    </div>
+    <div class="works-grid" id="worksGrid"></div>
+  </section>
+
+
+  <!-- Contact Section -->
+  <section id="contact" class="contact-section">
+    <div class="contact-brand">
+      <div class="contact-top">
+        <div class="contact-email-row">
+          <h2 class="contact-email" id="contactEmail"></h2>
+          <button class="copy-icon" id="copyBtn" title="复制邮箱">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          </button>
+          <span class="copy-tip" id="copyTip">已复制</span>
+        </div>
+      </div>
+      <h1 class="giant-text" id="contactBrand">Bill.Yu</h1>
+    </div>
+    <div class="contact-info">
+      <div class="contact-info-item">
+        <span class="info-label">WECHAT:</span>
+        <div class="info-value" id="contactSocial"></div>
+      </div>
+      <div class="contact-info-item">
+        <span class="info-label">PHONE:</span>
+        <div class="info-value" id="contactPhone"></div>
+      </div>
+      <div class="contact-info-item">
+        <span class="info-label">LOCATION:</span>
+        <div class="info-value" id="contactLocation"></div>
+      </div>
+      <div class="contact-info-item">
+        <span class="info-label">EXPERTISE:</span>
+        <div class="info-value" id="contactExpertise"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Custom Cursor -->
+  <div class="custom-cursor" id="customCursor">查看详情</div>
+
+  <!-- Disguise Page (shown when disguise mode is ON) -->
+  <div id="disguisePage" style="display:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#333;background:#fff;min-height:100vh;">
+    <style>
+      #disguisePage * { box-sizing: border-box; }
+      .dg-header { background:#1a73e8;color:#fff;padding:16px 40px;display:flex;align-items:center;justify-content:space-between; }
+      .dg-header h1 { font-size:20px;font-weight:600;margin:0; }
+      .dg-header nav a { color:rgba(255,255,255,0.9);text-decoration:none;margin-left:24px;font-size:14px; }
+      .dg-header nav a:hover { color:#fff;text-decoration:underline; }
+      .dg-banner { background:linear-gradient(135deg,#4285f4,#34a853);color:#fff;text-align:center;padding:80px 20px; }
+      .dg-banner h2 { font-size:36px;font-weight:700;margin:0 0 16px; }
+      .dg-banner p { font-size:18px;opacity:0.9;max-width:600px;margin:0 auto; }
+      .dg-features { max-width:960px;margin:60px auto;padding:0 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:32px; }
+      .dg-feature { text-align:center;padding:24px; }
+      .dg-feature .icon { font-size:40px;margin-bottom:16px; }
+      .dg-feature h3 { font-size:18px;margin:0 0 8px;color:#1a73e8; }
+      .dg-feature p { font-size:14px;color:#666;line-height:1.6; }
+      .dg-footer { background:#f8f9fa;text-align:center;padding:32px 20px;color:#999;font-size:13px;border-top:1px solid #eee; }
+      @media(max-width:768px) {
+        .dg-features { grid-template-columns:1fr;gap:20px; }
+        .dg-banner h2 { font-size:24px; }
+        .dg-banner { padding:50px 20px; }
+        .dg-header { padding:12px 20px; }
+        .dg-header nav a { margin-left:16px;font-size:13px; }
+      }
+    </style>
+    <header class="dg-header">
+      <h1>CloudSync Pro</h1>
+      <nav>
+        <a href="#">产品</a>
+        <a href="#">解决方案</a>
+        <a href="#">定价</a>
+        <a href="#">文档</a>
+        <a href="#">关于我们</a>
+      </nav>
+    </header>
+    <div class="dg-banner">
+      <h2>智能云端协作平台</h2>
+      <p>为企业提供安全、高效、可扩展的云端数据管理与团队协作解决方案</p>
+    </div>
+    <div class="dg-features">
+      <div class="dg-feature">
+        <div class="icon">🔒</div>
+        <h3>安全可靠</h3>
+        <p>采用银行级加密技术，多重备份机制确保数据安全无忧</p>
+      </div>
+      <div class="dg-feature">
+        <div class="icon">⚡</div>
+        <h3>极速同步</h3>
+        <p>全球CDN加速节点，毫秒级文件同步，随时随地高效协作</p>
+      </div>
+      <div class="dg-feature">
+        <div class="icon">📊</div>
+        <h3>智能分析</h3>
+        <p>AI驱动的数据分析引擎，自动生成可视化报告与洞察</p>
+      </div>
+    </div>
+    <footer class="dg-footer">
+      <p>© 2024 CloudSync Pro. All rights reserved. | 京ICP备xxxxxxxx号</p>
+    </footer>
+  </div>
+
+  <script src="/js/main.js"></script>
+</body>
+</html>

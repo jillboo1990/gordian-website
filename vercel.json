@@ -1,0 +1,26 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node",
+      "config": {
+        "maxDuration": 60,
+        "includeFiles": "public/**"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/upload",
+      "dest": "/server.js",
+      "headers": {
+        "x-vercel-timeout": "60s"
+      }
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/server.js"
+    }
+  ]
+}

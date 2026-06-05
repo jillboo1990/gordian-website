@@ -1,0 +1,2056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JILLBOO后台管理系统</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-2: #1e1e1e;
+      --border: #2a2a2a;
+      --text: #ffffff;
+      --text-secondary: #888;
+      --accent: #fff;
+      --accent-hover: #ccc;
+      --danger: #ff4444;
+      --success: #22c55e;
+      --radius: 8px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    /* Layout */
+    .admin-layout {
+      display: flex;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: 24px 0;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 240px;
+      height: 100vh;
+      overflow-y: auto;
+      z-index: 100;
+    }
+
+    .sidebar-brand {
+      padding: 0 24px 24px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 16px;
+    }
+
+    .sidebar-brand h1 {
+      font-size: 18px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+
+    .sidebar-brand span {
+      font-size: 11px;
+      color: var(--text-secondary);
+      letter-spacing: 1px;
+    }
+
+    .nav-items {
+      list-style: none;
+      padding: 0 12px;
+    }
+
+    .nav-item {
+      display: block;
+      padding: 10px 12px;
+      border-radius: 6px;
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 2px;
+    }
+
+    .nav-item:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .nav-item .nav-icon {
+      margin-right: 10px;
+      font-size: 16px;
+    }
+
+    .sidebar-footer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 16px 24px;
+      border-top: 1px solid var(--border);
+    }
+
+    .sidebar-footer a {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 12px;
+      transition: color 0.2s;
+    }
+
+    .sidebar-footer a:hover {
+      color: var(--text);
+    }
+
+    /* Main Content */
+    .main-content {
+      margin-left: 240px;
+      padding: 32px 40px;
+      min-height: 100vh;
+      flex: 1;
+      width: calc(100% - 240px);
+    }
+
+    .page-header {
+      margin-bottom: 32px;
+    }
+
+    .page-header h2 {
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 4px;
+    }
+
+    .page-header p {
+      color: var(--text-secondary);
+      font-size: 13px;
+    }
+
+    /* Cards */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+    }
+
+    .card-header h3 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    /* Forms */
+    .form-group {
+      margin-bottom: 16px;
+    }
+
+    .form-group label {
+      display: block;
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      margin-bottom: 6px;
+    }
+
+    .form-group input,
+    .form-group textarea {
+      width: 100%;
+      padding: 10px 14px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    .form-group textarea {
+      min-height: 100px;
+      resize: vertical;
+    }
+
+    .form-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 16px;
+    }
+
+    .form-row-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+
+    .btn-danger {
+      background: transparent;
+      color: var(--danger);
+      border: 1px solid var(--danger);
+    }
+
+    .btn-danger:hover {
+      background: var(--danger);
+      color: white;
+    }
+
+    .btn-sm {
+      padding: 6px 10px;
+      font-size: 12px;
+    }
+
+    /* Table */
+    .data-table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .data-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .data-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+
+    .data-table tr:last-child td {
+      border-bottom: none;
+    }
+
+    .data-table tr:hover td {
+      background: var(--surface-2);
+    }
+
+    .table-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--success);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 9999;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Modal */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.7);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+    }
+
+    .modal-overlay.show {
+      display: flex;
+    }
+
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      width: 90%;
+      max-width: 560px;
+      max-height: 80vh;
+      overflow-y: auto;
+    }
+
+    .modal h3 {
+      font-size: 18px;
+      margin-bottom: 20px;
+    }
+
+    .modal-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: flex-end;
+      margin-top: 24px;
+    }
+
+    /* Stats */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+    }
+
+    .stat-card .stat-value {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .stat-card .stat-label {
+      font-size: 12px;
+      color: var(--text-secondary);
+      letter-spacing: 0.5px;
+    }
+
+    /* Sections visibility */
+    .admin-section {
+      display: none;
+    }
+
+    .admin-section.active {
+      display: block;
+    }
+
+    /* Work image preview */
+    .img-preview {
+      width: 60px;
+      height: 60px;
+      border-radius: 6px;
+      object-fit: cover;
+      background: var(--surface-2);
+    }
+
+    /* Tag */
+    .tag {
+      display: inline-block;
+      padding: 3px 8px;
+      background: var(--surface-2);
+      border-radius: 4px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .upload-group {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+    .upload-group input[type="text"] {
+      flex: 1;
+    }
+    .upload-btn {
+      cursor: pointer;
+      white-space: nowrap;
+      padding: 8px 14px !important;
+      font-size: 13px;
+    }
+    .upload-preview {
+      margin-top: 8px;
+    }
+    .upload-preview img {
+      max-width: 120px;
+      max-height: 80px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+    }
+    /* Login Page */
+    .login-page {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      background: var(--bg);
+    }
+
+    .login-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 48px 40px;
+      width: 380px;
+      max-width: 90%;
+    }
+
+    .login-box h2 {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      letter-spacing: -0.5px;
+    }
+
+    .login-box p {
+      color: var(--text-secondary);
+      font-size: 13px;
+      margin-bottom: 28px;
+    }
+
+    .login-box .form-group {
+      margin-bottom: 18px;
+    }
+
+    .login-error {
+      color: var(--danger);
+      font-size: 12px;
+      margin-bottom: 12px;
+      display: none;
+    }
+
+    .admin-layout.hidden { display: none; }
+    .login-page.hidden { display: none; }
+  </style>
+</head>
+<body>
+  <!-- Login Page -->
+  <div class="login-page" id="loginPage">
+    <div class="login-box">
+      <h2>GORDIAN</h2>
+      <p>管理后台登录</p>
+      <div class="login-error" id="loginError">用户名或密码错误</div>
+      <form id="loginForm">
+        <div class="form-group">
+          <label>用户名</label>
+          <input type="text" id="login-username" placeholder="请输入用户名" required>
+        </div>
+        <div class="form-group">
+          <label>密码</label>
+          <input type="password" id="login-password" placeholder="请输入密码" required>
+        </div>
+        <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:12px;">登 录</button>
+      </form>
+    </div>
+  </div>
+
+  <div class="admin-layout hidden" id="adminLayout">
+    <!-- 侧边栏 -->
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <h1 id="sidebarBrandName">GORDIAN</h1>
+        <span>管理后台</span>
+      </div>
+      <ul class="nav-items">
+        <li class="nav-item active" data-section="dashboard">
+          <span class="nav-icon">&#9632;</span> 仪表盘
+        </li>
+        <li class="nav-item" data-section="site-info">
+          <span class="nav-icon">&#9881;</span> 站点信息
+        </li>
+        <li class="nav-item" data-section="hero">
+          <span class="nav-icon">&#127912;</span> 首屏横幅
+        </li>
+        <li class="nav-item" data-section="about">
+          <span class="nav-icon">&#9998;</span> 关于我
+        </li>
+        <li class="nav-item" data-section="experience">
+          <span class="nav-icon">&#128188;</span> 工作经历
+        </li>
+        <li class="nav-item" data-section="works">
+          <span class="nav-icon">&#128444;</span> 作品管理
+        </li>
+        <li class="nav-item" data-section="account">
+          <span class="nav-icon">&#128274;</span> 账号设置
+        </li>
+        <li class="nav-item" data-section="resume">
+          <span class="nav-icon">&#128196;</span> 简历管理
+        </li>
+        <li class="nav-item" data-section="disguise">
+          <span class="nav-icon">&#128123;</span> 伪装模式
+        </li>
+      </ul>
+      <div class="sidebar-footer">
+        <a href="/" target="_blank">&#8594; 查看前台网站</a>
+        <br>
+        <a href="#" onclick="doLogout()" style="color:var(--danger);margin-top:8px;display:inline-block;">退出登录</a>
+      </div>
+    </aside>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+
+      <!-- 仪表盘 -->
+      <div class="admin-section active" id="section-dashboard">
+        <div class="page-header">
+          <h2>仪表盘</h2>
+          <p>欢迎来到 Gordian 管理后台</p>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-value" id="stat-works">0</div>
+            <div class="stat-label">作品数量</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-experience">0</div>
+            <div class="stat-label">工作经历</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-years">0</div>
+            <div class="stat-label">从业年限</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-value" id="stat-services">0</div>
+            <div class="stat-label">服务类型</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>快捷操作</h3>
+          </div>
+          <div style="display:flex;gap:12px;flex-wrap:wrap;">
+            <button class="btn btn-primary" onclick="showSection('works')">管理作品</button>
+            <button class="btn btn-secondary" onclick="showSection('experience')">编辑经历</button>
+            <button class="btn btn-secondary" onclick="showSection('site-info')">修改信息</button>
+            <a href="/" target="_blank" class="btn btn-secondary">查看前台</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- 站点信息 -->
+      <div class="admin-section" id="section-site-info">
+        <div class="page-header">
+          <h2>站点信息</h2>
+          <p>管理品牌名称、联系方式和信息栏配置</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>网站图标 (Favicon)</h3>
+          </div>
+          <form id="faviconForm">
+            <div class="form-group">
+              <label>网站图标（建议 32x32 或 64x64 PNG）</label>
+              <div class="upload-group">
+                <input type="text" id="si-favicon" placeholder="/uploads/favicon.png 或上传图片">
+                <label class="btn btn-secondary upload-btn">
+                  上传图标
+                  <input type="file" accept="image/*" style="display:none" onchange="uploadFavicon(this)">
+                </label>
+              </div>
+              <div class="upload-preview" id="si-favicon-preview"></div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>页脚品牌区</h3>
+          </div>
+          <form id="siteInfoForm">
+            <div class="form-group">
+              <label>站点名称（浏览器标签页标题）</label>
+              <input type="text" id="si-siteName" placeholder="JILLBOO - 个人作品集">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>品牌大字（页脚展示）</label>
+                <input type="text" id="si-brand" placeholder="Bill.Yu">
+              </div>
+              <div class="form-group">
+                <label>邮箱地址（页脚展示）</label>
+                <input type="email" id="si-email" placeholder="jillboo@vip.qq.com">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>版权信息</label>
+              <input type="text" id="si-copyright" placeholder="©2024 Bill.Yu">
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>信息栏配置</h3>
+          </div>
+          <form id="infoBarForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label>WECHAT（微信号）</label>
+                <input type="text" id="si-wechat" placeholder="jillboo">
+              </div>
+              <div class="form-group">
+                <label>PHONE（手机号）</label>
+                <input type="text" id="si-phone" placeholder="138xxxxxxxx">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>LOCATION（位置）</label>
+                <input type="text" id="si-location" placeholder="北京·中国">
+              </div>
+              <div class="form-group">
+                <label>EXPERTISE（专业技能，逗号分隔）</label>
+                <input type="text" id="si-expertise" placeholder="平台设计, 设计体系, 团队管理">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- 关于我 -->
+      <div class="admin-section" id="section-about">
+        <div class="page-header">
+          <h2>关于我</h2>
+          <p>编辑"关于"板块的内容</p>
+        </div>
+        <div class="card">
+          <form id="aboutForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label>板块标题</label>
+                <input type="text" id="about-title" placeholder="ABOUT">
+              </div>
+              <div class="form-group">
+                <label>板块编号</label>
+                <input type="text" id="about-number" placeholder="S01">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>个人介绍</label>
+              <textarea id="about-desc" rows="5"></textarea>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>统计标签1</label>
+                <input type="text" id="about-statLabel1" placeholder="Works">
+              </div>
+              <div class="form-group">
+                <label>统计数字1</label>
+                <input type="number" id="about-works" placeholder="8">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>统计标签2</label>
+                <input type="text" id="about-statLabel2" placeholder="Years">
+              </div>
+              <div class="form-group">
+                <label>统计数字2</label>
+                <input type="number" id="about-years" placeholder="3">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>圆形图片1</label>
+                <div class="upload-group">
+                  <input type="text" id="about-image1" placeholder="https://... 或上传图片">
+                  <label class="btn btn-secondary upload-btn">
+                    上传
+                    <input type="file" accept="image/*" style="display:none" onchange="uploadAboutImage(this, 'about-image1')">
+                  </label>
+                </div>
+                <div class="upload-preview" id="about-image1-preview"></div>
+              </div>
+              <div class="form-group">
+                <label>圆形图片2</label>
+                <div class="upload-group">
+                  <input type="text" id="about-image2" placeholder="https://... 或上传图片">
+                  <label class="btn btn-secondary upload-btn">
+                    上传
+                    <input type="file" accept="image/*" style="display:none" onchange="uploadAboutImage(this, 'about-image2')">
+                  </label>
+                </div>
+                <div class="upload-preview" id="about-image2-preview"></div>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- 工作经历 -->
+      <div class="admin-section" id="section-experience">
+        <div class="page-header">
+          <h2>工作经历</h2>
+          <p>管理你的工作经历时间线</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>板块设置</h3>
+          </div>
+          <form id="expSectionForm">
+            <div class="form-row">
+              <div class="form-group">
+                <label>板块标题</label>
+                <input type="text" id="exp-section-title" placeholder="工作经历">
+              </div>
+              <div class="form-group">
+                <label>板块编号</label>
+                <input type="text" id="exp-section-number" placeholder="S02">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存设置</button>
+          </form>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>全部经历</h3>
+            <button class="btn btn-primary btn-sm" onclick="openExpModal()">+ 新增经历</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>时间段</th>
+                <th>职位</th>
+                <th>公司</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="expTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- 作品管理 -->
+      <div class="admin-section" id="section-works">
+        <div class="page-header">
+          <h2>作品管理</h2>
+          <p>管理你的作品集项目</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>全部作品</h3>
+            <button class="btn btn-primary btn-sm" onclick="openWorkModal()">+ 新增作品</button>
+          </div>
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>图片</th>
+                <th>名称</th>
+                <th>标签</th>
+                <th>年份</th>
+                <th>分类</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody id="worksTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <!-- 账号设置 -->
+      <div class="admin-section" id="section-account">
+        <div class="page-header">
+          <h2>账号设置</h2>
+          <p>修改后台登录用户名和密码</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>修改账号信息</h3>
+          </div>
+          <form id="accountForm">
+            <div class="form-group">
+              <label>当前用户名</label>
+              <input type="text" id="acc-username" placeholder="用户名">
+            </div>
+            <div class="form-group">
+              <label>原密码（验证身份）</label>
+              <input type="password" id="acc-old-password" placeholder="请输入原密码" required>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>新密码（不修改留空）</label>
+                <input type="password" id="acc-new-password" placeholder="输入新密码">
+              </div>
+              <div class="form-group">
+                <label>确认新密码</label>
+                <input type="password" id="acc-confirm-password" placeholder="再次输入新密码">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+      </div>
+
+<!-- 简历管理 -->
+<div class="admin-section" id="section-resume">
+  <div class="page-header">
+    <h2>简历管理</h2>
+    <p>配置简历下载按钮，上传简历文件供访客下载</p>
+  </div>
+  <div class="card">
+    <div class="card-body">
+      <div class="form-group">
+        <label>按钮文字</label>
+        <input type="text" id="resumeBtnText" class="form-control" value="下载简历" placeholder="下载简历">
+      </div>
+      <div class="form-group">
+        <label>显示按钮</label>
+        <div style="display:flex;align-items:center;gap:12px;">
+          <label style="position:relative;display:inline-block;width:48px;height:28px;cursor:pointer;">
+            <input type="checkbox" id="resumeEnabled" style="opacity:0;width:0;height:0;">
+            <span style="position:absolute;top:0;left:0;right:0;bottom:0;background:#ccc;border-radius:28px;transition:0.3s;" id="resumeEnabledSlider"></span>
+            <span style="position:absolute;content:'';height:22px;width:22px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.3s;" id="resumeEnabledDot"></span>
+          </label>
+          <span id="resumeEnabledStatus" style="color:var(--text-secondary);font-size:13px;">已关闭</span>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>简历文件</label>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+          <input type="file" id="resumeFileInput" accept=".pdf,.doc,.docx" style="display:none;">
+          <button type="button" class="btn btn-secondary" onclick="document.getElementById('resumeFileInput').click()">选择文件</button>
+          <span id="resumeFileName" style="color:var(--text-secondary);font-size:13px;">未上传</span>
+        </div>
+        <div id="resumeUploadProgress" style="display:none;margin-top:8px;">
+          <div style="background:#eee;border-radius:4px;height:4px;overflow:hidden;">
+            <div id="resumeProgressBar" style="background:var(--primary);height:100%;width:0%;transition:width 0.3s;"></div>
+          </div>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>当前文件链接</label>
+        <input type="text" id="resumeFileUrl" class="form-control" placeholder="上传后自动填充，也可手动输入链接">
+      </div>
+      <button type="button" class="btn btn-primary" onclick="saveResume()">保存配置</button>
+    </div>
+  </div>
+</div>
+
+<!-- 伪装模式 -->
+<div class="admin-section" id="section-disguise">
+        <div class="page-header">
+          <h2>伪装模式</h2>
+          <p>开启后，访客访问网站时将看到一个假的默认网页，而非你的真实作品集</p>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3>伪装开关</h3>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <label style="position:relative;display:inline-block;width:52px;height:28px;">
+              <input type="checkbox" id="disguiseToggle" style="opacity:0;width:0;height:0;" onchange="toggleDisguise(this.checked)">
+              <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#333;border-radius:28px;transition:0.3s;"></span>
+              <span style="position:absolute;content:'';height:22px;width:22px;left:3px;bottom:3px;background:white;border-radius:50%;transition:0.3s;" id="disguiseSlider"></span>
+            </label>
+            <span id="disguiseStatus" style="color:var(--text-secondary);font-size:13px;">已关闭</span>
+          </div>
+          <p style="margin-top:16px;color:var(--text-secondary);font-size:12px;line-height:1.6;">
+            开启后，网站首页将显示一个普通的企业模板页面。<br>
+            关闭后恢复显示你的真实作品集网站。<br>
+            此设置不影响后台管理页面。
+          </p>
+        </div>
+      </div>
+
+      <!-- 首屏横幅 -->
+      <div class="admin-section" id="section-hero">
+        <div class="page-header">
+          <h2>首屏横幅</h2>
+          <p>编辑首页顶部大图和文案</p>
+        </div>
+        <div class="card">
+          <form id="heroForm">
+            <div class="form-group">
+              <label>横幅大图</label>
+              <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+                <input type="text" id="hero-image" placeholder="输入图片链接或点击上传" style="flex:1;">
+                <label class="btn btn-secondary btn-sm" style="cursor:pointer;white-space:nowrap;">
+                  上传图片
+                  <input type="file" id="hero-image-upload" accept="image/*" style="display:none;">
+                </label>
+              </div>
+              <div id="hero-image-preview" style="margin-top:8px;display:none;">
+                <img style="max-width:300px;max-height:200px;border-radius:6px;border:1px solid var(--border);" id="hero-image-thumb">
+              </div>
+            </div>
+<div class="form-group">
+<label style="display:flex;align-items:center;gap:10px;">
+  <span>Hover 切换图片</span>
+  <label style="position:relative;display:inline-block;width:40px;height:22px;margin:0;">
+    <input type="checkbox" id="hero-hoverEnabled" style="opacity:0;width:0;height:0;" onchange="toggleHoverImage()">
+    <span style="position:absolute;cursor:pointer;top:0;left:0;right:0;bottom:0;background:#333;border-radius:11px;transition:.3s;"></span>
+    <span id="hero-hoverToggleKnob" style="position:absolute;content:'';height:18px;width:18px;left:2px;top:2px;background:#888;border-radius:50%;transition:.3s;"></span>
+  </label>
+</label>
+<div id="hero-hoverImage-section" style="display:none;margin-top:10px;">
+<div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;">
+<input type="text" id="hero-hoverImage" placeholder="输入图片链接或点击上传" style="flex:1;">
+<label class="btn btn-secondary btn-sm" style="cursor:pointer;white-space:nowrap;">
+上传图片
+<input type="file" id="hero-hoverImage-upload" accept="image/*" style="display:none;">
+</label>
+</div>
+<div id="hero-hoverImage-preview" style="margin-top:8px;display:none;">
+<img style="max-width:300px;max-height:200px;border-radius:6px;border:1px solid var(--border);" id="hero-hoverImage-thumb">
+</div>
+</div>
+</div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>左上大标题（换行用回车）</label>
+                <textarea id="hero-topLeftTitle" rows="2" placeholder="用设计&#10;创造价值"></textarea>
+              </div>
+              <div class="form-group">
+                <label>右上大标题（换行用回车）</label>
+                <textarea id="hero-topRightTitle" rows="2" placeholder="连接用户与业务&#10;共建美好体验"></textarea>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>左下副标题</label>
+              <input type="text" id="hero-bottomLeftSubtitle" placeholder="数字化体验驱动业务增长">
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>左下描述（换行用回车）</label>
+                <textarea id="hero-bottomLeftDesc" rows="2" placeholder="专注于设计体系建设与体验创新&#10;助力业务增长与用户价值创造"></textarea>
+              </div>
+              <div class="form-group">
+                <label>右下描述（换行用回车）</label>
+                <textarea id="hero-bottomRightDesc" rows="3" placeholder="带领团队打造美团设计体系与平台能力&#10;通过设计驱动产品创新与业务增长&#10;为数亿用户提供更好的体验"></textarea>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary">保存修改</button>
+          </form>
+        </div>
+      </div>
+
+
+
+    </main>
+  </div>
+
+  <!-- 经历弹窗 -->
+  <div class="modal-overlay" id="expModal">
+    <div class="modal">
+      <h3 id="expModalTitle">新增经历</h3>
+      <form id="expForm">
+        <input type="hidden" id="exp-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>开始时间（选填）</label>
+            <input type="text" id="exp-start" placeholder="01.2024">
+          </div>
+          <div class="form-group">
+            <label>结束时间（选填）</label>
+            <input type="text" id="exp-end" placeholder="至今">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>职位名称</label>
+            <input type="text" id="exp-role" placeholder="产品设计师" required>
+          </div>
+          <div class="form-group">
+            <label>公司名称（选填）</label>
+            <input type="text" id="exp-company" placeholder="公司名">
+          </div>
+        </div>
+        <div class="form-group">
+          <label>工作描述</label>
+          <textarea id="exp-desc" rows="3" required></textarea>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('expModal')">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 作品弹窗 -->
+  <div class="modal-overlay" id="workModal">
+    <div class="modal">
+      <h3 id="workModalTitle">新增作品</h3>
+      <form id="workForm">
+        <input type="hidden" id="work-id">
+        <div class="form-row">
+          <div class="form-group">
+            <label>项目名称</label>
+            <input type="text" id="work-name" placeholder="Opollo" required>
+          </div>
+          <div class="form-group">
+            <label>年份</label>
+            <input type="text" id="work-year" placeholder="2024" required>
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label>标签</label>
+            <input type="text" id="work-tags" placeholder="WEB DESIGN,IDENTITY" required>
+          </div>
+          <div class="form-group">
+            <label>分类</label>
+            <input type="text" id="work-category" placeholder="电商" required>
+          </div>
+        </div>
+        <div class="form-group">
+          <label>作品封面图</label>
+          <div class="upload-group">
+            <input type="text" id="work-image" placeholder="https://... 或上传图片">
+            <label class="btn btn-secondary upload-btn">
+              上传图片
+              <input type="file" accept="image/*" style="display:none" onchange="uploadWorkImage(this)">
+            </label>
+          </div>
+          <div class="upload-preview" id="work-image-preview"></div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-secondary" onclick="closeModal('workModal')">取消</button>
+          <button type="submit" class="btn btn-primary">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- 提示 -->
+  <div class="toast" id="toast">保存成功！</div>
+
+  <script>
+    let appData = {};
+    let authToken = localStorage.getItem('admin_token') || '';
+
+// ===== Auth Logic =====
+async function checkAuth() {
+if (authToken) {
+// Verify token is still valid on server
+try {
+const res = await fetch('/api/admin/auth-info', { headers: { 'X-Auth-Token': authToken } });
+if (res.status === 401) {
+// Token expired, force re-login
+authToken = '';
+localStorage.removeItem('admin_token');
+document.getElementById('loginPage').classList.remove('hidden');
+document.getElementById('adminLayout').classList.add('hidden');
+return;
+}
+} catch (e) {
+// Network error, still try to show admin
+}
+document.getElementById('loginPage').classList.add('hidden');
+document.getElementById('adminLayout').classList.remove('hidden');
+fetchData();
+} else {
+document.getElementById('loginPage').classList.remove('hidden');
+document.getElementById('adminLayout').classList.add('hidden');
+}
+}
+
+    document.getElementById('loginForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('login-username').value;
+      const password = document.getElementById('login-password').value;
+      try {
+        const res = await fetch('/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          authToken = data.token;
+          localStorage.setItem('admin_token', authToken);
+          document.getElementById('loginError').style.display = 'none';
+          checkAuth();
+        } else {
+          document.getElementById('loginError').textContent = data.error || '登录失败';
+          document.getElementById('loginError').style.display = 'block';
+        }
+      } catch (err) {
+        document.getElementById('loginError').textContent = '网络错误，请重试';
+        document.getElementById('loginError').style.display = 'block';
+      }
+    });
+
+    function doLogout() {
+      fetch('/api/logout', {
+        method: 'POST',
+        headers: { 'X-Auth-Token': authToken }
+      });
+      authToken = '';
+      localStorage.removeItem('admin_token');
+      checkAuth();
+    }
+
+// Wrapper for authenticated fetch
+function authFetch(url, options = {}) {
+options.headers = options.headers || {};
+options.headers['X-Auth-Token'] = authToken;
+// 60s timeout for uploads, 30s for others
+const timeout = url.includes('/upload') ? 60000 : 30000;
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), timeout);
+options.signal = controller.signal;
+return fetch(url, options).then(res => {
+clearTimeout(timer);
+if (res.status === 401) {
+authToken = '';
+localStorage.removeItem('admin_token');
+checkAuth();
+throw new Error('登录已过期，请重新登录');
+}
+return res;
+}).catch(err => {
+clearTimeout(timer);
+if (err.name === 'AbortError') {
+throw new Error('请求超时，请检查网络后重试');
+}
+throw err;
+});
+}
+
+    // 获取数据
+    async function fetchData() {
+      const res = await authFetch('/api/admin/data');
+      appData = await res.json();
+      renderAll();
+      loadAccountInfo();
+    }
+
+    function renderAll() {
+      renderDashboard();
+      renderSiteInfo();
+      renderDisguise();
+      renderResume();
+      renderHero();
+      renderAbout();
+      renderExperiences();
+      renderWorks();
+      renderServices();
+      renderProcess();
+      renderContact();
+    }
+
+    function renderDashboard() {
+      document.getElementById('stat-works').textContent = appData.works?.length || 0;
+      document.getElementById('stat-experience').textContent = appData.experiences?.length || 0;
+      document.getElementById('stat-years').textContent = appData.about?.years || 0;
+      document.getElementById('stat-services').textContent = appData.services?.headings?.length || 0;
+    }
+
+    function renderSiteInfo() {
+      const si = appData.siteInfo || {};
+      document.getElementById('si-siteName').value = si.siteName || '';
+      document.getElementById('si-brand').value = si.brand || '';
+      document.getElementById('sidebarBrandName').textContent = si.brand || 'GORDIAN';
+      document.getElementById('si-email').value = si.email || '';
+      document.getElementById('si-copyright').value = si.copyright || '';
+      document.getElementById('si-wechat').value = si.social?.wechat || '';
+      document.getElementById('si-phone').value = si.phone || '';
+      document.getElementById('si-location').value = si.location || '';
+      document.getElementById('si-expertise').value = (si.expertise || []).join(', ');
+      // Favicon
+      document.getElementById('si-favicon').value = si.favicon || '';
+      const faviconPreview = document.getElementById('si-favicon-preview');
+      if (si.favicon) {
+        faviconPreview.innerHTML = `<img src="${si.favicon}" alt="图标预览" style="width:32px;height:32px;">`;
+      } else {
+        faviconPreview.innerHTML = '';
+      }
+    }
+
+    function renderDisguise() {
+      const enabled = appData.siteInfo?.disguiseMode || false;
+      const toggle = document.getElementById('disguiseToggle');
+      const status = document.getElementById('disguiseStatus');
+      const slider = document.getElementById('disguiseSlider');
+      if (toggle) {
+        toggle.checked = enabled;
+        if (enabled) {
+          toggle.parentElement.querySelector('span').style.background = '#22c55e';
+          slider.style.transform = 'translateX(24px)';
+          status.textContent = '已开启';
+          status.style.color = '#22c55e';
+        } else {
+          toggle.parentElement.querySelector('span').style.background = '#333';
+          slider.style.transform = 'translateX(0)';
+          status.textContent = '已关闭';
+          status.style.color = 'var(--text-secondary)';
+        }
+      }
+    }
+
+    async function toggleDisguise(enabled) {
+      const status = document.getElementById('disguiseStatus');
+      const slider = document.getElementById('disguiseSlider');
+      const toggle = document.getElementById('disguiseToggle');
+      try {
+        const res = await authFetch('/api/admin/disguise', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ enabled })
+        });
+        if (res.ok) {
+          appData.siteInfo.disguiseMode = enabled;
+          if (enabled) {
+            toggle.parentElement.querySelector('span').style.background = '#22c55e';
+            slider.style.transform = 'translateX(24px)';
+            status.textContent = '已开启';
+            status.style.color = '#22c55e';
+          } else {
+            toggle.parentElement.querySelector('span').style.background = '#333';
+            slider.style.transform = 'translateX(0)';
+            status.textContent = '已关闭';
+            status.style.color = 'var(--text-secondary)';
+          }
+          showToast(enabled ? '伪装模式已开启' : '伪装模式已关闭');
+        }
+      } catch (err) {
+        showToast('操作失败', 'error');
+        toggle.checked = !enabled;
+      }
+    }
+
+    // ===== Resume Management =====
+    function renderResume() {
+      const resume = appData.resume || {};
+      document.getElementById('resumeBtnText').value = resume.btnText || '下载简历';
+      document.getElementById('resumeFileUrl').value = resume.fileUrl || '';
+      document.getElementById('resumeFileName').textContent = resume.fileName || '未上传';
+
+      const enabled = resume.enabled || false;
+      const toggle = document.getElementById('resumeEnabled');
+      const slider = document.getElementById('resumeEnabledSlider');
+      const dot = document.getElementById('resumeEnabledDot');
+      const status = document.getElementById('resumeEnabledStatus');
+      if (toggle) {
+        toggle.checked = enabled;
+        if (enabled) {
+          slider.style.background = '#22c55e';
+          dot.style.transform = 'translateX(20px)';
+          status.textContent = '已开启';
+          status.style.color = '#22c55e';
+        } else {
+          slider.style.background = '#ccc';
+          dot.style.transform = 'translateX(0)';
+          status.textContent = '已关闭';
+          status.style.color = 'var(--text-secondary)';
+        }
+      }
+
+      // Toggle event
+      toggle.onchange = function() {
+        const on = this.checked;
+        if (on) {
+          slider.style.background = '#22c55e';
+          dot.style.transform = 'translateX(20px)';
+          status.textContent = '已开启';
+          status.style.color = '#22c55e';
+        } else {
+          slider.style.background = '#ccc';
+          dot.style.transform = 'translateX(0)';
+          status.textContent = '已关闭';
+          status.style.color = 'var(--text-secondary)';
+        }
+      };
+
+      // File upload handler
+      document.getElementById('resumeFileInput').onchange = async function() {
+        const file = this.files[0];
+        if (!file) return;
+        const formData = new FormData();
+        formData.append('file', file);
+        const progress = document.getElementById('resumeUploadProgress');
+        const bar = document.getElementById('resumeProgressBar');
+        progress.style.display = 'block';
+        bar.style.width = '30%';
+        try {
+          const res = await authFetch('/api/upload/resume', { method: 'POST', body: formData });
+          bar.style.width = '100%';
+          if (res.ok) {
+            const data = await res.json();
+            document.getElementById('resumeFileUrl').value = data.url;
+            document.getElementById('resumeFileName').textContent = data.fileName;
+            appData.resume = appData.resume || {};
+            appData.resume.fileUrl = data.url;
+            appData.resume.fileName = data.fileName;
+            showToast('简历上传成功');
+          } else {
+            showToast('上传失败', 'error');
+          }
+        } catch (err) {
+          showToast('上传失败: ' + err.message, 'error');
+        }
+        setTimeout(() => { progress.style.display = 'none'; bar.style.width = '0%'; }, 1000);
+      };
+    }
+
+    async function saveResume() {
+      const btnText = document.getElementById('resumeBtnText').value.trim();
+      const fileUrl = document.getElementById('resumeFileUrl').value.trim();
+      const enabled = document.getElementById('resumeEnabled').checked;
+      try {
+        const res = await authFetch('/api/admin/resume', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ btnText, fileUrl, enabled })
+        });
+        if (res.ok) {
+          appData.resume = { ...appData.resume, btnText, fileUrl, enabled };
+          showToast('简历配置已保存');
+        } else {
+          showToast('保存失败', 'error');
+        }
+      } catch (err) {
+        showToast('保存失败: ' + err.message, 'error');
+      }
+    }
+
+    function renderAbout() {
+      document.getElementById('about-title').value = appData.about?.title || '';
+      document.getElementById('about-number').value = appData.about?.number || '';
+      document.getElementById('about-desc').value = appData.about?.description || '';
+      document.getElementById('about-statLabel1').value = appData.about?.statLabel1 || '';
+      document.getElementById('about-works').value = appData.about?.works || '';
+      document.getElementById('about-statLabel2').value = appData.about?.statLabel2 || '';
+      document.getElementById('about-years').value = appData.about?.years || '';
+      document.getElementById('about-image1').value = appData.about?.image1 || '';
+      document.getElementById('about-image2').value = appData.about?.image2 || '';
+      // Show image previews
+      const img1 = appData.about?.image1;
+      const img2 = appData.about?.image2;
+      if (img1) document.getElementById('about-image1-preview').innerHTML = `<img src="${img1}" alt="预览">`;
+      if (img2) document.getElementById('about-image2-preview').innerHTML = `<img src="${img2}" alt="预览">`;
+    }
+
+    function renderExperiences() {
+      const section = appData.experienceSection || {};
+      document.getElementById('exp-section-title').value = section.title || '';
+      document.getElementById('exp-section-number').value = section.number || '';
+
+      const tbody = document.getElementById('expTableBody');
+      tbody.innerHTML = (appData.experiences || []).map(exp => `
+        <tr>
+          <td>${exp.startDate} / ${exp.endDate}</td>
+          <td><strong>${exp.role}</strong></td>
+          <td>${exp.company}</td>
+          <td class="table-actions">
+            <button class="btn btn-secondary btn-sm" onclick="editExp(${exp.id})">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteExp(${exp.id})">删除</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderWorks() {
+      const tbody = document.getElementById('worksTableBody');
+      tbody.innerHTML = (appData.works || []).map(w => `
+        <tr style="${w.hidden ? 'opacity:0.5;' : ''}">
+          <td><img class="img-preview" src="${w.image}" alt="${w.name}"></td>
+          <td><strong>${w.name}</strong>${w.hidden ? ' <span style="color:#e74c3c;font-size:12px;">（已隐藏）</span>' : ''}</td>
+          <td><span class="tag">${w.tags}</span></td>
+          <td>${w.year}</td>
+          <td>${w.category}</td>
+          <td class="table-actions">
+            <button class="btn ${w.hidden ? 'btn-primary' : 'btn-secondary'} btn-sm" onclick="toggleWorkHidden(${w.id})">${w.hidden ? '显示' : '隐藏'}</button>
+            <a href="/admin/work-detail/${w.id}" class="btn btn-primary btn-sm">编辑详情</a>
+            <button class="btn btn-secondary btn-sm" onclick="editWork(${w.id})">编辑</button>
+            <button class="btn btn-danger btn-sm" onclick="deleteWork(${w.id})">删除</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function renderServices() {}
+
+
+    // 导航切换
+    document.querySelectorAll('.nav-item').forEach(item => {
+      item.addEventListener('click', () => {
+        showSection(item.dataset.section);
+      });
+    });
+
+    function showSection(section) {
+      document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+      document.querySelectorAll('.admin-section').forEach(s => s.classList.remove('active'));
+      document.querySelector(`[data-section="${section}"]`)?.classList.add('active');
+      document.getElementById(`section-${section}`)?.classList.add('active');
+    }
+
+// Upload progress overlay
+function createProgressOverlay() {
+  let overlay = document.getElementById('uploadOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'uploadOverlay';
+    overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
+    overlay.innerHTML = `
+      <div style="background:#1e1e1e;border-radius:12px;padding:32px 40px;min-width:320px;text-align:center;border:1px solid #333;">
+        <div id="uploadStatus" style="color:#fff;font-size:14px;margin-bottom:16px;">准备上传...</div>
+        <div style="background:#333;border-radius:6px;height:8px;overflow:hidden;margin-bottom:12px;">
+          <div id="uploadProgressBar" style="background:#22c55e;height:100%;width:0%;transition:width 0.2s;border-radius:6px;"></div>
+        </div>
+        <div id="uploadPercent" style="color:#888;font-size:12px;">0%</div>
+      </div>`;
+    document.body.appendChild(overlay);
+  }
+  overlay.style.display = 'flex';
+  return overlay;
+}
+
+function updateProgress(percent, status) {
+  document.getElementById('uploadProgressBar').style.width = percent + '%';
+  document.getElementById('uploadPercent').textContent = Math.round(percent) + '%';
+  if (status) document.getElementById('uploadStatus').textContent = status;
+}
+
+function hideProgress() {
+  const overlay = document.getElementById('uploadOverlay');
+  if (overlay) overlay.style.display = 'none';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+}
+
+// 图片压缩（超过4MB自动压缩）
+async function compressImage(file, maxSizeMB = 4) {
+  if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+  if (!file.type.startsWith('image/')) return { file, compressed: false };
+  const originalSize = file.size;
+  updateProgress(0, `压缩中... 原始大小 ${formatSize(originalSize)}`);
+  const compressed = await new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      let w = img.width, h = img.height;
+      const maxDim = 3000;
+      if (w > maxDim || h > maxDim) {
+        const ratio = Math.min(maxDim / w, maxDim / h);
+        w = Math.round(w * ratio);
+        h = Math.round(h * ratio);
+      }
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob((blob) => {
+        resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+      }, 'image/jpeg', 0.85);
+    };
+    img.src = URL.createObjectURL(file);
+  });
+  updateProgress(0, `已压缩: ${formatSize(originalSize)} → ${formatSize(compressed.size)}`);
+  return { file: compressed, compressed: true, originalSize, compressedSize: compressed.size };
+}
+
+// Upload with progress using XMLHttpRequest
+function uploadWithProgress(file) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    const formData = new FormData();
+    formData.append('image', file);
+
+    xhr.upload.addEventListener('progress', (e) => {
+      if (e.lengthComputable) {
+        const percent = (e.loaded / e.total) * 100;
+        updateProgress(percent, `上传中... ${formatSize(e.loaded)} / ${formatSize(e.total)}`);
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      if (xhr.status === 200) {
+        try {
+          resolve(JSON.parse(xhr.responseText));
+        } catch (e) {
+          reject(new Error('服务端返回格式错误'));
+        }
+      } else if (xhr.status === 401) {
+        alert('登录已过期，请重新登录');
+        window.location.href = '/admin';
+        reject(new Error('未登录'));
+      } else {
+        reject(new Error(xhr.responseText || '上传失败'));
+      }
+    });
+
+    xhr.addEventListener('error', () => reject(new Error('网络错误')));
+    xhr.addEventListener('timeout', () => reject(new Error('上传超时')));
+    xhr.timeout = 60000;
+
+    xhr.open('POST', '/api/upload');
+    xhr.setRequestHeader('X-Auth-Token', authToken);
+    xhr.send(formData);
+  });
+}
+
+// 图片上传
+async function uploadAboutImage(fileInput, targetId) {
+  let file = fileInput.files[0];
+  if (!file) return;
+  createProgressOverlay();
+  try {
+    const result = await compressImage(file);
+    file = result.file;
+    if (result.compressed) {
+      updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    const data = await uploadWithProgress(file);
+    if (data.success) {
+      updateProgress(100, '上传完成！');
+      await new Promise(r => setTimeout(r, 500));
+      document.getElementById(targetId).value = data.url;
+      const preview = document.getElementById(targetId + '-preview');
+      if (preview) preview.innerHTML = `<img src="${data.url}" alt="预览">`;
+      showToast('图片上传成功！');
+    } else {
+      showToast(data.error || '上传失败');
+    }
+  } catch (err) {
+    showToast('上传失败：' + err.message);
+  } finally {
+    hideProgress();
+  }
+  fileInput.value = '';
+}
+
+    // 提示消息
+    function showToast(msg = '保存成功！') {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // 弹窗控制
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('show');
+    }
+
+    // ===== Favicon 上传与保存 =====
+async function uploadFavicon(fileInput) {
+  let file = fileInput.files[0];
+  if (!file) return;
+  createProgressOverlay();
+  try {
+    const result = await compressImage(file);
+    file = result.file;
+    if (result.compressed) {
+      updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    const data = await uploadWithProgress(file);
+    if (data.success) {
+      updateProgress(100, '上传完成！');
+      await new Promise(r => setTimeout(r, 500));
+      document.getElementById('si-favicon').value = data.url;
+      document.getElementById('si-favicon-preview').innerHTML = `<img src="${data.url}" alt="图标预览" style="width:32px;height:32px;">`;
+      showToast('图标上传成功！');
+    } else {
+      showToast(data.error || '上传失败');
+    }
+  } catch (err) {
+    showToast('上传失败：' + err.message);
+  } finally {
+    hideProgress();
+  }
+  fileInput.value = '';
+}
+
+    document.getElementById('faviconForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = { favicon: document.getElementById('si-favicon').value };
+      await authFetch('/api/admin/site-info', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      showToast('图标已保存！');
+      fetchData();
+    });
+
+    // ===== 页脚品牌区表单 =====
+    document.getElementById('siteInfoForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        siteName: document.getElementById('si-siteName').value,
+        brand: document.getElementById('si-brand').value,
+        email: document.getElementById('si-email').value,
+        copyright: document.getElementById('si-copyright').value
+      };
+      await authFetch('/api/admin/site-info', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      showToast();
+      fetchData();
+    });
+
+    // ===== 信息栏配置表单 =====
+    document.getElementById('infoBarForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        phone: document.getElementById('si-phone').value,
+        location: document.getElementById('si-location').value,
+        expertise: document.getElementById('si-expertise').value.split(',').map(s => s.trim()),
+        social: {
+          wechat: document.getElementById('si-wechat').value
+        }
+      };
+      await authFetch('/api/admin/site-info', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      showToast();
+      fetchData();
+    });
+
+    // ===== 关于我表单 =====
+    document.getElementById('aboutForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        title: document.getElementById('about-title').value,
+        number: document.getElementById('about-number').value,
+        description: document.getElementById('about-desc').value,
+        statLabel1: document.getElementById('about-statLabel1').value,
+        works: parseInt(document.getElementById('about-works').value),
+        statLabel2: document.getElementById('about-statLabel2').value,
+        years: parseInt(document.getElementById('about-years').value),
+        image1: document.getElementById('about-image1').value,
+        image2: document.getElementById('about-image2').value
+      };
+      await authFetch('/api/admin/about', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      showToast('保存成功！');
+      fetchData();
+    });
+
+    // ===== Experience Section Form =====
+    document.getElementById('expSectionForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const body = {
+        title: document.getElementById('exp-section-title').value,
+        number: document.getElementById('exp-section-number').value
+      };
+      await authFetch('/api/admin/experience-section', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      showToast('保存成功！');
+      fetchData();
+    });
+
+    // ===== Experience CRUD =====
+    function openExpModal(exp = null) {
+      document.getElementById('expModalTitle').textContent = exp ? '编辑经历' : '添加经历';
+      document.getElementById('exp-id').value = exp?.id || '';
+      document.getElementById('exp-start').value = exp?.startDate || '';
+      document.getElementById('exp-end').value = exp?.endDate || '';
+      document.getElementById('exp-role').value = exp?.role || '';
+      document.getElementById('exp-company').value = exp?.company || '';
+      document.getElementById('exp-desc').value = exp?.description || '';
+      document.getElementById('expModal').classList.add('show');
+    }
+
+    function editExp(id) {
+      const exp = appData.experiences.find(e => e.id === id);
+      if (exp) openExpModal(exp);
+    }
+
+    async function deleteExp(id) {
+      if (!confirm('确定要删除这条经历吗？')) return;
+      await authFetch(`/api/admin/experiences/${id}`, { method: 'DELETE' });
+      showToast('删除成功！');
+      fetchData();
+    }
+
+    document.getElementById('expForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('exp-id').value;
+      const body = {
+        startDate: document.getElementById('exp-start').value,
+        endDate: document.getElementById('exp-end').value,
+        role: document.getElementById('exp-role').value,
+        company: document.getElementById('exp-company').value,
+        description: document.getElementById('exp-desc').value
+      };
+      if (id) {
+        await authFetch(`/api/admin/experiences/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } else {
+        await authFetch('/api/admin/experiences', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
+      closeModal('expModal');
+      showToast('保存成功！');
+      fetchData();
+    });
+
+    // ===== Works CRUD =====
+    function openWorkModal(work = null) {
+      document.getElementById('workModalTitle').textContent = work ? '编辑项目' : '添加项目';
+      document.getElementById('work-id').value = work?.id || '';
+      document.getElementById('work-name').value = work?.name || '';
+      document.getElementById('work-year').value = work?.year || '';
+      document.getElementById('work-tags').value = work?.tags || '';
+      document.getElementById('work-category').value = work?.category || '';
+      document.getElementById('work-image').value = work?.image || '';
+      const preview = document.getElementById('work-image-preview');
+      if (work?.image) {
+        preview.innerHTML = `<img src="${work.image}" alt="预览">`;
+      } else {
+        preview.innerHTML = '';
+      }
+      document.getElementById('workModal').classList.add('show');
+    }
+
+async function uploadWorkImage(fileInput) {
+  let file = fileInput.files[0];
+  if (!file) return;
+  createProgressOverlay();
+  try {
+    const result = await compressImage(file);
+    file = result.file;
+    if (result.compressed) {
+      updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    const data = await uploadWithProgress(file);
+    if (data.success) {
+      updateProgress(100, '上传完成！');
+      await new Promise(r => setTimeout(r, 500));
+      document.getElementById('work-image').value = data.url;
+      document.getElementById('work-image-preview').innerHTML = `<img src="${data.url}" alt="预览">`;
+      showToast('图片上传成功！');
+    } else {
+      showToast(data.error || '上传失败');
+    }
+  } catch (err) {
+    showToast('上传失败：' + err.message);
+  } finally {
+    hideProgress();
+  }
+  fileInput.value = '';
+}
+
+    function editWork(id) {
+      const work = appData.works.find(w => w.id === id);
+      if (work) openWorkModal(work);
+    }
+
+    async function toggleWorkHidden(id) {
+      await authFetch(`/api/admin/works/${id}/toggle-hidden`, { method: 'PUT' });
+      const work = appData.works.find(w => w.id === id);
+      if (work) work.hidden = !work.hidden;
+      renderWorks();
+      showToast(work?.hidden ? '作品已隐藏' : '作品已显示');
+    }
+
+    async function deleteWork(id) {
+      if (!confirm('确定要删除这个项目吗？')) return;
+      await authFetch(`/api/admin/works/${id}`, { method: 'DELETE' });
+      showToast('删除成功！');
+      fetchData();
+    }
+
+    document.getElementById('workForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const id = document.getElementById('work-id').value;
+      const body = {
+        name: document.getElementById('work-name').value,
+        year: document.getElementById('work-year').value,
+        tags: document.getElementById('work-tags').value,
+        category: document.getElementById('work-category').value,
+        image: document.getElementById('work-image').value
+      };
+      if (id) {
+        await authFetch(`/api/admin/works/${id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      } else {
+        await authFetch('/api/admin/works', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+      }
+      closeModal('workModal');
+      showToast('保存成功！');
+      fetchData();
+    });
+
+    // ===== Services Form =====
+
+    // ===== Hero =====
+    function renderHero() {
+      const hero = appData.hero || {};
+      document.getElementById('hero-image').value = hero.image || '';
+      document.getElementById('hero-topLeftTitle').value = hero.topLeftTitle || '';
+      document.getElementById('hero-topRightTitle').value = hero.topRightTitle || '';
+      document.getElementById('hero-bottomLeftSubtitle').value = hero.bottomLeftSubtitle || '';
+      document.getElementById('hero-bottomLeftDesc').value = hero.bottomLeftDesc || '';
+      document.getElementById('hero-bottomRightDesc').value = hero.bottomRightDesc || '';
+// Show preview if image exists
+const imgUrl = hero.image || '';
+if (imgUrl) {
+document.getElementById('hero-image-thumb').src = imgUrl;
+document.getElementById('hero-image-preview').style.display = 'block';
+}
+// Hover image
+const hoverEnabled = !!hero.hoverImage;
+document.getElementById('hero-hoverEnabled').checked = hoverEnabled;
+updateHoverToggleUI(hoverEnabled);
+document.getElementById('hero-hoverImage-section').style.display = hoverEnabled ? 'block' : 'none';
+document.getElementById('hero-hoverImage').value = hero.hoverImage || '';
+const hoverUrl = hero.hoverImage || '';
+if (hoverUrl) {
+document.getElementById('hero-hoverImage-thumb').src = hoverUrl;
+document.getElementById('hero-hoverImage-preview').style.display = 'block';
+} else {
+document.getElementById('hero-hoverImage-preview').style.display = 'none';
+}
+}
+
+function toggleHoverImage() {
+const checked = document.getElementById('hero-hoverEnabled').checked;
+updateHoverToggleUI(checked);
+document.getElementById('hero-hoverImage-section').style.display = checked ? 'block' : 'none';
+if (!checked) {
+document.getElementById('hero-hoverImage').value = '';
+document.getElementById('hero-hoverImage-preview').style.display = 'none';
+}
+}
+
+function updateHoverToggleUI(on) {
+const knob = document.getElementById('hero-hoverToggleKnob');
+const track = knob.previousElementSibling;
+if (on) {
+knob.style.transform = 'translateX(18px)';
+knob.style.background = '#fff';
+track.style.background = '#22c55e';
+} else {
+knob.style.transform = 'translateX(0)';
+knob.style.background = '#888';
+track.style.background = '#333';
+}
+}
+
+    // Hero image upload handler
+document.getElementById('hero-image-upload').addEventListener('change', async (e) => {
+  let file = e.target.files[0];
+  if (!file) return;
+  createProgressOverlay();
+  try {
+    const result = await compressImage(file);
+    file = result.file;
+    if (result.compressed) {
+      updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    const data = await uploadWithProgress(file);
+    if (data.success) {
+      updateProgress(100, '上传完成！');
+      await new Promise(r => setTimeout(r, 500));
+      document.getElementById('hero-image').value = data.url;
+      document.getElementById('hero-image-thumb').src = data.url;
+      document.getElementById('hero-image-preview').style.display = 'block';
+      showToast('图片上传成功！');
+    } else {
+      showToast(data.error || '上传失败');
+    }
+  } catch (err) {
+    showToast('上传失败，请重试');
+  } finally {
+    hideProgress();
+  }
+});
+
+// Hero hover image upload handler
+document.getElementById('hero-hoverImage-upload').addEventListener('change', async (e) => {
+  let file = e.target.files[0];
+  if (!file) return;
+  createProgressOverlay();
+  try {
+    const result = await compressImage(file);
+    file = result.file;
+    if (result.compressed) {
+      updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+      await new Promise(r => setTimeout(r, 800));
+    }
+    const data = await uploadWithProgress(file);
+    if (data.success) {
+      updateProgress(100, '上传完成！');
+      await new Promise(r => setTimeout(r, 500));
+      document.getElementById('hero-hoverImage').value = data.url;
+      document.getElementById('hero-hoverImage-thumb').src = data.url;
+      document.getElementById('hero-hoverImage-preview').style.display = 'block';
+      showToast('Hover图片上传成功！');
+    } else {
+      showToast(data.error || '上传失败');
+    }
+  } catch (err) {
+    showToast('上传失败，请重试');
+  } finally {
+    hideProgress();
+  }
+});
+
+document.getElementById('heroForm').addEventListener('submit', async (e) => {
+e.preventDefault();
+const body = {
+image: document.getElementById('hero-image').value,
+hoverImage: document.getElementById('hero-hoverImage').value,
+topLeftTitle: document.getElementById('hero-topLeftTitle').value,
+topRightTitle: document.getElementById('hero-topRightTitle').value,
+bottomLeftSubtitle: document.getElementById('hero-bottomLeftSubtitle').value,
+bottomLeftDesc: document.getElementById('hero-bottomLeftDesc').value,
+bottomRightDesc: document.getElementById('hero-bottomRightDesc').value
+};
+await authFetch('/api/admin/hero', {
+method: 'PUT',
+headers: { 'Content-Type': 'application/json' },
+body: JSON.stringify(body)
+});
+showToast('保存成功！');
+fetchData();
+});
+
+    function renderProcess() {}
+
+    // ===== Contact (no longer separate) =====
+    function renderContact() {}
+
+    // ===== Account Settings =====
+    async function loadAccountInfo() {
+      try {
+        const res = await authFetch('/api/admin/auth-info');
+        const data = await res.json();
+        document.getElementById('acc-username').value = data.username || '';
+      } catch(e) {}
+    }
+
+    document.getElementById('accountForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const username = document.getElementById('acc-username').value;
+      const oldPassword = document.getElementById('acc-old-password').value;
+      const newPassword = document.getElementById('acc-new-password').value;
+      const confirmPassword = document.getElementById('acc-confirm-password').value;
+
+      if (newPassword && newPassword !== confirmPassword) {
+        showToast('两次新密码输入不一致');
+        return;
+      }
+
+      try {
+        const res = await authFetch('/api/admin/auth', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, oldPassword, newPassword })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          showToast('账号信息已更新！');
+          document.getElementById('acc-old-password').value = '';
+          document.getElementById('acc-new-password').value = '';
+          document.getElementById('acc-confirm-password').value = '';
+        } else {
+          showToast(data.error || '保存失败');
+        }
+      } catch (err) {
+        showToast('保存失败：' + err.message);
+      }
+    });
+
+    // Init
+    checkAuth();
+  </script>
+</body>
+</html>

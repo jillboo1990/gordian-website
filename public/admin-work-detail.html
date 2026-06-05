@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>JILLBOO后台管理系统</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Quill Editor -->
+  <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0a;
+      --surface: #141414;
+      --surface-2: #1e1e1e;
+      --border: #2a2a2a;
+      --text: #ffffff;
+      --text-secondary: #888;
+      --accent: #fff;
+      --accent-hover: #ccc;
+      --success: #22c55e;
+      --radius: 8px;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .top-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 32px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .top-bar .left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .top-bar .back-btn {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 13px;
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      transition: all 0.2s;
+    }
+
+    .top-bar .back-btn:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    .top-bar h1 {
+      font-size: 16px;
+      font-weight: 600;
+    }
+
+    .top-bar .actions {
+      display: flex;
+      gap: 12px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 18px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 500;
+      font-family: inherit;
+      cursor: pointer;
+      transition: all 0.2s;
+      border: none;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-hover);
+    }
+
+    .btn-secondary {
+      background: var(--surface-2);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--border);
+    }
+
+/* Editor area */
+.editor-container {
+max-width: none;
+margin: 32px 0;
+padding: 0 180px;
+    }
+
+    .toolbar-section {
+      margin-bottom: 16px;
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .toolbar-btn {
+      padding: 6px 12px;
+      border-radius: 4px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .toolbar-btn:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+
+    /* Quill overrides for dark theme */
+    .ql-toolbar.ql-snow {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px 8px 0 0;
+    }
+
+    .ql-container.ql-snow {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 8px 8px;
+      min-height: 500px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .ql-editor {
+      min-height: 500px;
+      line-height: 1.8;
+    }
+
+    /* Table styles inside editor */
+    .ql-editor table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0;
+      font-size: 13px;
+    }
+    .ql-editor table th,
+    .ql-editor table td {
+      border: 1px solid var(--border);
+      padding: 8px 12px;
+      text-align: left;
+      color: var(--text);
+    }
+    .ql-editor table th {
+      background: var(--surface);
+      font-weight: 600;
+    }
+    .ql-editor table td {
+      background: var(--surface-2);
+    }
+
+    /* Collapse section styles inside editor */
+    .ql-editor .collapse-section {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 16px 0;
+      overflow: hidden;
+    }
+    .ql-editor .collapse-header {
+      padding: 12px 16px;
+      background: var(--surface);
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      user-select: none;
+    }
+    .ql-editor .collapse-header::after {
+      content: '▼';
+      font-size: 10px;
+      transition: transform 0.3s;
+    }
+    .ql-editor .collapse-section.collapsed .collapse-header::after {
+      transform: rotate(-90deg);
+    }
+    .ql-editor .collapse-body {
+      padding: 12px 16px;
+    }
+    .ql-editor .collapse-section.collapsed .collapse-body {
+      display: none;
+    }
+    /* Collapse card in editor (FIGURE element) */
+    .ql-editor .collapse-card {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 16px;
+      margin: 12px 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      cursor: pointer;
+      user-select: none;
+      transition: border-color 0.2s;
+    }
+    .ql-editor .collapse-card:hover {
+      border-color: #555;
+    }
+    .collapse-card-icon {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .collapse-card-title {
+      flex: 1;
+      font-weight: 600;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .collapse-card-hint {
+      font-size: 11px;
+      color: var(--text-secondary);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .ql-editor .collapse-card:hover .collapse-card-hint {
+      opacity: 1;
+    }
+
+    /* Video styles inside editor */
+    .ql-editor video {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+    .ql-editor iframe {
+      max-width: 100%;
+      border-radius: 8px;
+      margin: 16px 0;
+    }
+
+    .ql-editor.ql-blank::before {
+      color: var(--text-secondary);
+      font-style: normal;
+    }
+
+    .ql-snow .ql-stroke {
+      stroke: var(--text-secondary);
+    }
+
+    .ql-snow .ql-fill {
+      fill: var(--text-secondary);
+    }
+
+    .ql-snow .ql-picker-label {
+      color: var(--text-secondary);
+    }
+
+    .ql-snow .ql-picker-options {
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    .ql-snow .ql-picker-item {
+      color: var(--text);
+    }
+
+    .ql-toolbar.ql-snow .ql-picker.ql-expanded .ql-picker-options {
+      border-color: var(--border);
+    }
+
+    .ql-snow .ql-tooltip {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--text);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    }
+
+    .ql-snow .ql-tooltip input[type="text"] {
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+    }
+
+    .ql-snow .ql-tooltip a {
+      color: var(--text-secondary);
+    }
+
+    /* Collapse editor modal */
+    .collapse-modal-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background: rgba(0,0,0,0.75);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: fadeIn 0.2s;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    .collapse-modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      width: 720px;
+      max-width: 90vw;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    }
+    .collapse-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+    }
+    .collapse-modal-header h3 {
+      font-size: 14px;
+      font-weight: 600;
+    }
+    .collapse-modal-header .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      font-size: 20px;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 4px;
+    }
+    .collapse-modal-header .close-btn:hover {
+      background: var(--surface-2);
+      color: var(--text);
+    }
+    .collapse-modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .collapse-modal-body label {
+      display: block;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 6px;
+    }
+    .collapse-modal-body input.collapse-title-input {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 14px;
+      font-family: inherit;
+      margin-bottom: 16px;
+      outline: none;
+    }
+    .collapse-modal-body input.collapse-title-input:focus {
+      border-color: #555;
+    }
+    .collapse-modal-body .sub-editor-label {
+      margin-bottom: 6px;
+    }
+    /* Sub-editor: native contenteditable */
+    .sub-editor-toolbar {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+      padding: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 6px 6px 0 0;
+    }
+    .sub-editor-toolbar button {
+      padding: 4px 10px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      color: var(--text-secondary);
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .sub-editor-toolbar button:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+    #collapseSubEditor {
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+      padding: 12px 16px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 6px 6px;
+      font-size: 14px;
+      color: var(--text);
+      line-height: 1.6;
+      outline: none;
+    }
+    #collapseSubEditor:empty::before {
+      content: '在此编辑折叠内容，支持插入图片、视频等...';
+      color: var(--text-secondary);
+      pointer-events: none;
+    }
+    #collapseSubEditor img {
+      max-width: 100%;
+      border-radius: 6px;
+      margin: 8px 0;
+      display: block;
+    }
+    #collapseSubEditor video {
+      max-width: 100%;
+      border-radius: 6px;
+      margin: 8px 0;
+      display: block;
+    }
+    .collapse-modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      padding: 12px 20px;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      background: var(--success);
+      color: white;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 9999;
+      transform: translateY(100px);
+      opacity: 0;
+      transition: all 0.3s ease;
+    }
+
+    .toast.show {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    /* Preview link */
+    .preview-link {
+      color: var(--text-secondary);
+      text-decoration: none;
+      font-size: 12px;
+      transition: color 0.2s;
+    }
+
+    .preview-link:hover {
+      color: var(--text);
+    }
+  </style>
+</head>
+<body>
+  <div class="top-bar">
+    <div class="left">
+      <a href="/admin" class="back-btn">← 返回后台</a>
+      <h1 id="pageTitle">编辑作品详情</h1>
+    </div>
+    <div class="actions">
+      <a href="#" id="previewLink" class="btn btn-secondary" target="_blank">预览</a>
+      <button class="btn btn-secondary" onclick="insertTable()">插入表格</button>
+      <button class="btn btn-secondary" onclick="insertCollapse()">插入折叠块</button>
+      <button class="btn btn-secondary" onclick="insertVideo()">插入视频</button>
+      <button class="btn btn-primary" onclick="saveDetail()">保存</button>
+    </div>
+  </div>
+
+  <div class="editor-container">
+    <div id="editor"></div>
+  </div>
+
+  <div class="toast" id="toast">保存成功！</div>
+
+  <!-- Collapse block editor modal -->
+  <div class="collapse-modal-overlay" id="collapseModal" style="display:none;">
+    <div class="collapse-modal">
+      <div class="collapse-modal-header">
+        <h3>编辑折叠块</h3>
+        <button class="close-btn" onclick="closeCollapseModal()">&times;</button>
+      </div>
+      <div class="collapse-modal-body">
+        <label>折叠块标题</label>
+        <input type="text" class="collapse-title-input" id="collapseTitleInput" placeholder="输入标题...">
+        <label class="sub-editor-label">折叠块内容（支持图片、视频等富文本）</label>
+        <div class="sub-editor-toolbar">
+          <button type="button" onclick="subEditorCmd('bold')" title="加粗"><b>B</b></button>
+          <button type="button" onclick="subEditorCmd('italic')" title="斜体"><i>I</i></button>
+          <button type="button" onclick="subEditorCmd('underline')" title="下划线"><u>U</u></button>
+          <button type="button" onclick="subEditorInsertImage()" title="插入图片">🖼️ 图片</button>
+          <button type="button" onclick="subEditorInsertVideo()" title="插入视频">🎥 视频</button>
+          <button type="button" onclick="subEditorInsertLink()" title="插入链接">🔗 链接</button>
+        </div>
+        <div id="collapseSubEditor" contenteditable="true"></div>
+      </div>
+      <div class="collapse-modal-footer">
+        <button class="btn btn-secondary" onclick="closeCollapseModal()">取消</button>
+        <button class="btn btn-primary" onclick="saveCollapseModal()">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+  <script>
+    const workId = window.location.pathname.split('/').pop();
+    const authToken = localStorage.getItem('admin_token') || '';
+
+    // Authenticated fetch wrapper
+    function authFetch(url, options = {}) {
+      options.headers = options.headers || {};
+      options.headers['X-Auth-Token'] = authToken;
+      const timeout = url.includes('/upload') ? 60000 : 30000;
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeout);
+      options.signal = controller.signal;
+      return fetch(url, options).then(res => {
+        clearTimeout(timer);
+        if (res.status === 401) {
+          alert('登录已过期，请重新登录');
+          window.location.href = '/admin';
+          throw new Error('未登录');
+        }
+        return res;
+      }).catch(err => {
+        clearTimeout(timer);
+        if (err.name === 'AbortError') throw new Error('请求超时，请检查网络后重试');
+        throw err;
+      });
+    }
+
+    // Check login status
+    if (!authToken) {
+      alert('请先登录后台');
+      window.location.href = '/admin';
+    }
+
+    // Upload progress overlay
+    function createProgressOverlay() {
+      let overlay = document.getElementById('uploadOverlay');
+      if (!overlay) {
+        overlay = document.createElement('div');
+        overlay.id = 'uploadOverlay';
+        overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:99999;';
+        overlay.innerHTML = `
+          <div style="background:#1e1e1e;border-radius:12px;padding:32px 40px;min-width:320px;text-align:center;border:1px solid #333;">
+            <div id="uploadStatus" style="color:#fff;font-size:14px;margin-bottom:16px;">准备上传...</div>
+            <div style="background:#333;border-radius:6px;height:8px;overflow:hidden;margin-bottom:12px;">
+              <div id="uploadProgressBar" style="background:#22c55e;height:100%;width:0%;transition:width 0.2s;border-radius:6px;"></div>
+            </div>
+            <div id="uploadPercent" style="color:#888;font-size:12px;">0%</div>
+          </div>`;
+        document.body.appendChild(overlay);
+      }
+      overlay.style.display = 'flex';
+      return overlay;
+    }
+
+    function updateProgress(percent, status) {
+      document.getElementById('uploadProgressBar').style.width = percent + '%';
+      document.getElementById('uploadPercent').textContent = Math.round(percent) + '%';
+      if (status) document.getElementById('uploadStatus').textContent = status;
+    }
+
+    function hideProgress() {
+      const overlay = document.getElementById('uploadOverlay');
+      if (overlay) overlay.style.display = 'none';
+    }
+
+    function formatSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    // Compress image if over 4MB
+    async function compressImage(file, maxSizeMB = 4) {
+      if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+      if (!file.type.startsWith('image/')) return { file, compressed: false };
+      const originalSize = file.size;
+      updateProgress(0, `压缩中... 原始大小 ${formatSize(originalSize)}`);
+      const compressed = await new Promise((resolve) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let w = img.width, h = img.height;
+          const maxDim = 3000;
+          if (w > maxDim || h > maxDim) {
+            const ratio = Math.min(maxDim / w, maxDim / h);
+            w = Math.round(w * ratio);
+            h = Math.round(h * ratio);
+          }
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.85);
+        };
+        img.src = URL.createObjectURL(file);
+      });
+      updateProgress(0, `已压缩: ${formatSize(originalSize)} → ${formatSize(compressed.size)}`);
+      return { file: compressed, compressed: true, originalSize, compressedSize: compressed.size };
+    }
+
+    // Upload with progress using XMLHttpRequest
+    // For files <= 4MB: use standard multipart upload
+    // For files > 4MB: get client token and upload directly to Vercel Blob
+    async function uploadWithProgress(file) {
+      const MAX_DIRECT = 4 * 1024 * 1024; // 4MB threshold
+
+      if (file.size > MAX_DIRECT) {
+        // Large file: client-direct upload to Vercel Blob
+        return await uploadLargeFile(file);
+      }
+
+      // Standard upload via server
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const formData = new FormData();
+        formData.append('image', file);
+
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const percent = (e.loaded / e.total) * 100;
+            updateProgress(percent, `上传中... ${formatSize(e.loaded)} / ${formatSize(e.total)}`);
+          }
+        });
+
+        xhr.addEventListener('load', () => {
+          if (xhr.status === 200) {
+            try {
+              resolve(JSON.parse(xhr.responseText));
+            } catch (e) {
+              reject(new Error('服务端返回格式错误'));
+            }
+          } else if (xhr.status === 401) {
+            alert('登录已过期，请重新登录');
+            window.location.href = '/admin';
+            reject(new Error('未登录'));
+          } else {
+            reject(new Error(xhr.responseText || '上传失败'));
+          }
+        });
+
+        xhr.addEventListener('error', () => reject(new Error('网络错误')));
+        xhr.addEventListener('timeout', () => reject(new Error('上传超时')));
+        xhr.timeout = 300000;
+
+        xhr.open('POST', '/api/upload');
+        xhr.setRequestHeader('X-Auth-Token', authToken);
+        xhr.send(formData);
+      });
+    }
+
+    // Large file upload: get client token, then use @vercel/blob SDK put()
+    async function uploadLargeFile(file) {
+      const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB chunks (well under 4.5MB limit)
+      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
+
+      // Step 1: Start chunked upload session
+      updateProgress(0, '初始化分块上传...');
+      const startRes = await authFetch('/api/upload/chunk/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType: file.type, totalSize: file.size })
+      });
+      const startData = await startRes.json();
+      if (!startData.success) throw new Error(startData.error || '初始化上传失败');
+      const uploadId = startData.uploadId;
+
+      // Step 2: Send chunks sequentially
+      let uploaded = 0;
+      for (let i = 0; i < totalChunks; i++) {
+        const start = i * CHUNK_SIZE;
+        const end = Math.min(start + CHUNK_SIZE, file.size);
+        const chunk = file.slice(start, end);
+        const pct = Math.round((uploaded / file.size) * 100);
+        updateProgress(pct, `上传中... ${formatSize(uploaded)} / ${formatSize(file.size)} (分块 ${i+1}/${totalChunks})`);
+
+        const chunkRes = await authFetch(`/api/upload/chunk/${uploadId}`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/octet-stream' },
+          body: chunk
+        });
+        const chunkData = await chunkRes.json();
+        if (!chunkData.success) throw new Error(chunkData.error || `分块 ${i+1} 上传失败`);
+        uploaded += (end - start);
+      }
+
+      // Step 3: Complete upload - server assembles and uploads to Vercel Blob
+      updateProgress(95, '合并文件中...');
+      const completeRes = await authFetch(`/api/upload/chunk/complete/${uploadId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      const completeData = await completeRes.json();
+      if (!completeData.success) throw new Error(completeData.error || '合并上传失败');
+      updateProgress(100, '上传完成!');
+      return { success: true, url: completeData.url };
+    }
+
+    // Compress video using Canvas + MediaRecorder
+    async function compressVideo(file, maxSizeMB = 20) {
+      if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+      const originalSize = file.size;
+      updateProgress(0, `视频压缩中... 原始大小 ${formatSize(originalSize)}`);
+
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+
+        video.onloadedmetadata = () => {
+          // Determine target resolution (max 720p)
+          let w = video.videoWidth, h = video.videoHeight;
+          const maxDim = 720;
+          if (h > maxDim) {
+            const ratio = maxDim / h;
+            w = Math.round(w * ratio);
+            h = maxDim;
+          }
+          // Ensure even dimensions
+          w = w % 2 === 0 ? w : w + 1;
+          h = h % 2 === 0 ? h : h + 1;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          // Target bitrate based on desired output size
+          const duration = video.duration;
+          const targetBits = Math.min(1500000, (maxSizeMB * 8 * 1024 * 1024) / duration);
+          const stream = canvas.captureStream(24);
+
+          // Add audio track if present
+          try {
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaElementSource(video);
+            const dest = audioCtx.createMediaStreamDestination();
+            source.connect(dest);
+            source.connect(audioCtx.destination);
+            dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+          } catch(e) { /* no audio track or not supported */ }
+
+          const recorder = new MediaRecorder(stream, {
+            mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm',
+            videoBitsPerSecond: targetBits
+          });
+
+          const chunks = [];
+          recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.webm'), { type: 'video/webm' });
+            updateProgress(0, `视频已压缩: ${formatSize(originalSize)} → ${formatSize(compressed.size)}`);
+            URL.revokeObjectURL(video.src);
+            resolve({ file: compressed, compressed: true, originalSize, compressedSize: compressed.size });
+          };
+          recorder.onerror = (e) => {
+            URL.revokeObjectURL(video.src);
+            resolve({ file, compressed: false });
+          };
+
+          recorder.start(100);
+          video.play();
+
+          const drawFrame = () => {
+            if (video.ended || video.paused) {
+              recorder.stop();
+              return;
+            }
+            ctx.drawImage(video, 0, 0, w, h);
+            const progress = (video.currentTime / duration) * 100;
+            updateProgress(progress, `视频压缩中... ${Math.round(progress)}%`);
+            requestAnimationFrame(drawFrame);
+          };
+          requestAnimationFrame(drawFrame);
+
+          video.onended = () => {
+            setTimeout(() => recorder.stop(), 200);
+          };
+        };
+
+        video.onerror = () => {
+          resolve({ file, compressed: false });
+        };
+
+        video.src = URL.createObjectURL(file);
+      });
+    }
+
+    // ===== Collapse block: marker-based approach =====
+    // Quill cannot reliably handle custom nested DOM structures.
+    // Strategy: Insert a special marker text in Quill that looks like a card.
+    // On save, convert markers to real collapse HTML.
+    // On load, convert real collapse HTML back to markers for editing.
+    //
+    // Marker format in Quill: a code-block line like:
+    //   ▶ 折叠块: {title} | {body}
+    // This survives Quill editing because it's plain text in a code-block.
+    //
+    // Actually even simpler: use a custom BlockEmbed with a non-DIV tag (FIGURE)
+    // that Quill won't conflict with.
+
+    const BlockEmbed = Quill.import('blots/block/embed');
+
+    class CollapseBlot extends BlockEmbed {
+      static create(value) {
+        const node = super.create();
+        node.setAttribute('contenteditable', 'false');
+        node.setAttribute('data-title', value.title || '');
+        node.setAttribute('data-body', value.body || '');
+        node.innerHTML = `<span class="collapse-card-icon">▼</span><span class="collapse-card-title">${value.title || '折叠块'}</span><span class="collapse-card-hint">双击编辑</span>`;
+        // Double-click to open rich editor modal
+        node.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          openCollapseModal(node);
+        });
+        return node;
+      }
+
+      static value(node) {
+        return {
+          title: node.getAttribute('data-title') || '',
+          body: node.getAttribute('data-body') || ''
+        };
+      }
+    }
+
+    CollapseBlot.blotName = 'collapse';
+    CollapseBlot.tagName = 'FIGURE';
+    CollapseBlot.className = 'collapse-card';
+
+    Quill.register(CollapseBlot);
+
+    // Initialize Quill
+    const quill = new Quill('#editor', {
+      theme: 'snow',
+      placeholder: '在这里编辑作品详情内容...',
+      modules: {
+        toolbar: [
+          [{ 'header': [1, 2, 3, false] }],
+          [{ 'font': [] }],
+          [{ 'size': ['small', false, 'large', 'huge'] }],
+          ['bold', 'italic', 'underline', 'strike'],
+          [{ 'color': [] }, { 'background': [] }],
+          [{ 'align': [] }],
+          [{ 'list': 'ordered' }, { 'list': 'bullet' }],
+          ['blockquote', 'code-block'],
+          ['link', 'image'],
+          [{ 'indent': '-1' }, { 'indent': '+1' }],
+          ['clean']
+        ]
+      }
+    });
+
+    // Custom image upload handler
+    quill.getModule('toolbar').addHandler('image', function() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async () => {
+        let file = input.files[0];
+        if (!file) return;
+        createProgressOverlay();
+        try {
+          const result = await compressImage(file);
+          file = result.file;
+          if (result.compressed) {
+            updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+            await new Promise(r => setTimeout(r, 800));
+          }
+          const data = await uploadWithProgress(file);
+          if (data.success) {
+            updateProgress(100, '上传完成！');
+            await new Promise(r => setTimeout(r, 500));
+            const range = quill.getSelection(true);
+            quill.insertEmbed(range.index, 'image', data.url);
+            quill.setSelection(range.index + 1);
+          } else {
+            alert(data.error || '上传失败');
+          }
+        } catch (err) {
+          alert('上传失败：' + err.message);
+        } finally {
+          hideProgress();
+        }
+      };
+      input.click();
+    });
+
+    // Convert real collapse HTML to editor card markers for loading
+    function collapseHtmlToCards(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      tmp.querySelectorAll('.collapse-section').forEach(section => {
+        const title = section.querySelector('.collapse-header')?.textContent?.trim() || '折叠块';
+        const body = section.querySelector('.collapse-body')?.innerHTML?.trim() || '';
+        const figure = document.createElement('figure');
+        figure.className = 'collapse-card';
+        figure.setAttribute('contenteditable', 'false');
+        figure.setAttribute('data-title', title);
+        figure.setAttribute('data-body', body);
+        figure.innerHTML = `<span class="collapse-card-icon">▼</span><span class="collapse-card-title">${title}</span><span class="collapse-card-hint">双击编辑</span>`;
+        section.replaceWith(figure);
+      });
+      return tmp.innerHTML;
+    }
+
+    // Convert editor card markers to real collapse HTML for saving
+    function cardsToCollapseHtml(html) {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html;
+      tmp.querySelectorAll('figure.collapse-card').forEach(figure => {
+        const title = figure.getAttribute('data-title') || '折叠块';
+        const body = figure.getAttribute('data-body') || '';
+        const section = document.createElement('div');
+        section.className = 'collapse-section';
+        section.innerHTML = `<div class="collapse-header">${title}</div><div class="collapse-body">${body ? body : '<p></p>'}</div>`;
+        figure.replaceWith(section);
+      });
+      return tmp.innerHTML;
+    }
+
+    // Load existing content
+    async function loadWork() {
+      try {
+        const res = await fetch(`/api/works/${workId}`);
+        if (!res.ok) throw new Error('Not found');
+        const work = await res.json();
+        document.getElementById('pageTitle').textContent = `编辑详情 - ${work.name}`;
+        document.getElementById('previewLink').href = `/work/${workId}`;
+        if (work.detail) {
+          // Convert collapse sections to figure cards before loading into Quill
+          const editorHtml = collapseHtmlToCards(work.detail);
+          quill.root.innerHTML = editorHtml;
+          // Bind dblclick events on collapse cards to open modal editor
+          quill.root.querySelectorAll('figure.collapse-card').forEach(node => {
+            node.addEventListener('dblclick', (e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              openCollapseModal(node);
+            });
+          });
+        }
+      } catch (err) {
+        alert('加载作品数据失败');
+      }
+    }
+
+    // Save content - convert figure cards back to real collapse HTML
+    async function saveDetail() {
+      const html = cardsToCollapseHtml(quill.root.innerHTML);
+      try {
+        const res = await authFetch(`/api/admin/works/${workId}/detail`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ detail: html })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('保存成功！');
+        } else {
+          showToast('保存失败');
+        }
+      } catch (err) {
+        showToast('保存失败：' + err.message);
+      }
+    }
+
+    // Insert table - directly manipulate DOM to bypass Quill's whitelist
+    function insertTable() {
+      const rows = prompt('行数：', '3');
+      const cols = prompt('列数：', '3');
+      if (!rows || !cols) return;
+      const r = parseInt(rows), c = parseInt(cols);
+      if (isNaN(r) || isNaN(c) || r < 1 || c < 1) return;
+
+      let tableHtml = '<table><thead><tr>';
+      for (let i = 0; i < c; i++) {
+        tableHtml += `<th>表头${i + 1}</th>`;
+      }
+      tableHtml += '</tr></thead><tbody>';
+      for (let i = 0; i < r - 1; i++) {
+        tableHtml += '<tr>';
+        for (let j = 0; j < c; j++) {
+          tableHtml += '<td>内容</td>';
+        }
+        tableHtml += '</tr>';
+      }
+      tableHtml += '</tbody></table>';
+
+      // Insert directly into editor DOM
+      const selection = window.getSelection();
+      const editor = quill.root;
+      let insertPoint = editor.lastElementChild || editor;
+      if (selection.rangeCount > 0) {
+        let node = selection.getRangeAt(0).startContainer;
+        while (node && node.parentNode !== editor) node = node.parentNode;
+        if (node) insertPoint = node;
+      }
+      const wrapper = document.createElement('div');
+      wrapper.innerHTML = tableHtml;
+      const tableEl = wrapper.firstElementChild;
+      insertPoint.parentNode.insertBefore(tableEl, insertPoint.nextSibling);
+      // Add empty paragraph after for continued editing
+      const p = document.createElement('p');
+      p.innerHTML = '<br>';
+      tableEl.parentNode.insertBefore(p, tableEl.nextSibling);
+      showToast('表格已插入');
+    }
+
+    // ===== Collapse Modal: native contenteditable sub-editor =====
+    let currentCollapseNode = null; // the FIGURE node being edited
+    let isNewCollapse = false; // whether we are inserting a new block
+
+    function getSubEditor() {
+      return document.getElementById('collapseSubEditor');
+    }
+
+    // Toolbar commands for sub-editor
+    function subEditorCmd(cmd) {
+      getSubEditor().focus();
+      document.execCommand(cmd, false, null);
+    }
+
+    function subEditorInsertLink() {
+      const url = prompt('输入链接地址：');
+      if (!url) return;
+      getSubEditor().focus();
+      document.execCommand('createLink', false, url);
+    }
+
+    async function subEditorInsertImage() {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.accept = 'image/*';
+      input.onchange = async () => {
+        let file = input.files[0];
+        if (!file) return;
+        createProgressOverlay();
+        try {
+          const result = await compressImage(file);
+          file = result.file;
+          const data = await uploadWithProgress(file);
+          if (data.success) {
+            updateProgress(100, '上传完成！');
+            await new Promise(r => setTimeout(r, 400));
+            // Insert img into contenteditable
+            const img = document.createElement('img');
+            img.src = data.url;
+            img.style.cssText = 'max-width:100%;border-radius:6px;margin:8px 0;display:block;';
+            insertIntoSubEditor(img);
+          } else {
+            alert(data.error || '上传失败');
+          }
+        } catch (err) {
+          alert('上传失败：' + err.message);
+        } finally {
+          hideProgress();
+        }
+      };
+      input.click();
+    }
+
+    async function subEditorInsertVideo() {
+      const choice = confirm('点击"确定"上传本地视频，点击"取消"输入视频链接');
+      if (choice) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'video/*';
+        input.onchange = async () => {
+          let file = input.files[0];
+          if (!file) return;
+          createProgressOverlay();
+          try {
+            // Compress if over 20MB
+            if (file.size > 20 * 1024 * 1024) {
+              const result = await compressVideo(file);
+              file = result.file;
+              if (result.compressed) {
+                updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+                await new Promise(r => setTimeout(r, 800));
+              }
+            }
+            updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
+            const data = await uploadWithProgress(file);
+            if (data.success) {
+              updateProgress(100, '上传完成！');
+              await new Promise(r => setTimeout(r, 400));
+              const video = document.createElement('video');
+              video.setAttribute('controls', '');
+              video.setAttribute('preload', 'metadata');
+              video.style.cssText = 'max-width:100%;border-radius:6px;margin:8px 0;display:block;';
+              const source = document.createElement('source');
+              source.src = data.url;
+              if (file.type) source.type = file.type;
+              video.appendChild(source);
+              insertIntoSubEditor(video);
+            } else {
+              alert(data.error || '上传失败');
+            }
+          } catch (err) {
+            alert('上传失败：' + err.message);
+          } finally {
+            hideProgress();
+          }
+        };
+        input.click();
+      } else {
+        const url = prompt('输入视频链接（支持 mp4、YouTube 等）：');
+        if (!url) return;
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          const videoId = url.includes('youtu.be') ? url.split('/').pop() : new URLSearchParams(new URL(url).search).get('v');
+          const iframe = document.createElement('iframe');
+          iframe.src = `https://www.youtube.com/embed/${videoId}`;
+          iframe.setAttribute('width', '100%');
+          iframe.setAttribute('height', '315');
+          iframe.setAttribute('frameborder', '0');
+          iframe.setAttribute('allowfullscreen', '');
+          iframe.style.cssText = 'border-radius:6px;margin:8px 0;display:block;';
+          insertIntoSubEditor(iframe);
+        } else {
+          const video = document.createElement('video');
+          video.setAttribute('controls', '');
+          video.setAttribute('preload', 'metadata');
+          video.style.cssText = 'max-width:100%;border-radius:6px;margin:8px 0;display:block;';
+          const source = document.createElement('source');
+          source.src = url;
+          video.appendChild(source);
+          insertIntoSubEditor(video);
+        }
+      }
+    }
+
+    // Helper: insert an element into the sub-editor at cursor or at end
+    function insertIntoSubEditor(element) {
+      const editor = getSubEditor();
+      editor.focus();
+      const sel = window.getSelection();
+      if (sel.rangeCount > 0 && editor.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(element);
+        // Move cursor after the element
+        range.setStartAfter(element);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        editor.appendChild(element);
+      }
+      // Ensure a line break after for continued typing
+      const br = document.createElement('br');
+      element.parentNode.insertBefore(br, element.nextSibling);
+    }
+
+    // Paste image handler for sub-editor
+    document.addEventListener('DOMContentLoaded', () => {
+      const subEditor = document.getElementById('collapseSubEditor');
+      if (subEditor) {
+        subEditor.addEventListener('paste', async (e) => {
+          const items = Array.from(e.clipboardData?.items || []);
+          const imageItem = items.find(i => i.type.startsWith('image/'));
+          if (!imageItem) return;
+          e.preventDefault();
+          let file = imageItem.getAsFile();
+          if (!file) return;
+          createProgressOverlay();
+          try {
+            const result = await compressImage(file);
+            file = result.file;
+            const data = await uploadWithProgress(file);
+            if (data.success) {
+              updateProgress(100, '上传完成！');
+              await new Promise(r => setTimeout(r, 400));
+              const img = document.createElement('img');
+              img.src = data.url;
+              img.style.cssText = 'max-width:100%;border-radius:6px;margin:8px 0;display:block;';
+              insertIntoSubEditor(img);
+            } else {
+              alert(data.error || '粘贴图片上传失败');
+            }
+          } catch (err) {
+            alert('粘贴图片上传失败：' + err.message);
+          } finally {
+            hideProgress();
+          }
+        });
+      }
+    });
+
+    function openCollapseModal(node) {
+      currentCollapseNode = node;
+      isNewCollapse = false;
+      document.getElementById('collapseTitleInput').value = node.getAttribute('data-title') || '';
+      getSubEditor().innerHTML = node.getAttribute('data-body') || '';
+      document.getElementById('collapseModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('collapseTitleInput').focus(), 100);
+    }
+
+    function openCollapseModalForNew() {
+      currentCollapseNode = null;
+      isNewCollapse = true;
+      document.getElementById('collapseTitleInput').value = '';
+      getSubEditor().innerHTML = '';
+      document.getElementById('collapseModal').style.display = 'flex';
+      setTimeout(() => document.getElementById('collapseTitleInput').focus(), 100);
+    }
+
+    function closeCollapseModal() {
+      document.getElementById('collapseModal').style.display = 'none';
+      currentCollapseNode = null;
+    }
+
+    function saveCollapseModal() {
+      const title = document.getElementById('collapseTitleInput').value.trim() || '折叠块';
+      const body = getSubEditor().innerHTML;
+
+      if (isNewCollapse) {
+        // Insert new collapse block
+        const range = quill.getSelection(true);
+        const index = range ? range.index : quill.getLength() - 1;
+        quill.insertEmbed(index, 'collapse', { title, body }, Quill.sources.USER);
+        quill.setSelection(index + 1, Quill.sources.SILENT);
+        showToast('折叠块已插入');
+      } else if (currentCollapseNode) {
+        // Update existing collapse block
+        currentCollapseNode.setAttribute('data-title', title);
+        currentCollapseNode.setAttribute('data-body', body);
+        currentCollapseNode.querySelector('.collapse-card-title').textContent = title;
+        showToast('折叠块已更新');
+      }
+      closeCollapseModal();
+    }
+
+    // Insert collapsible section — opens modal for rich editing
+    function insertCollapse() {
+      openCollapseModalForNew();
+    }
+
+    // Insert video - direct DOM manipulation
+    function insertVideo() {
+      const choice = confirm('点击"确定"上传本地视频，点击"取消"输入视频链接');
+      if (choice) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'video/*';
+        input.onchange = async () => {
+          let file = input.files[0];
+          if (!file) return;
+          createProgressOverlay();
+          try {
+            // Compress if over 20MB
+            if (file.size > 20 * 1024 * 1024) {
+              const result = await compressVideo(file);
+              file = result.file;
+              if (result.compressed) {
+                updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+                await new Promise(r => setTimeout(r, 800));
+              }
+            }
+            updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
+            const data = await uploadWithProgress(file);
+            if (data.success) {
+              updateProgress(100, '上传完成！');
+              await new Promise(r => setTimeout(r, 500));
+              insertVideoElement(data.url, file.type);
+            } else {
+              alert(data.error || '上传失败');
+            }
+          } catch (err) {
+            alert('上传失败：' + err.message);
+          } finally {
+            hideProgress();
+          }
+        };
+        input.click();
+      } else {
+        const url = prompt('输入视频链接（支持 mp4、YouTube 等）：');
+        if (!url) return;
+        if (url.includes('youtube.com') || url.includes('youtu.be')) {
+          const videoId = url.includes('youtu.be') ? url.split('/').pop() : new URLSearchParams(new URL(url).search).get('v');
+          insertIframeElement(`https://www.youtube.com/embed/${videoId}`);
+        } else {
+          insertVideoElement(url, '');
+        }
+      }
+    }
+
+    // Helper: insert <video> element into editor DOM
+    function insertVideoElement(src, type) {
+      const editor = quill.root;
+      const selection = window.getSelection();
+      let insertPoint = editor.lastElementChild || editor;
+      if (selection.rangeCount > 0) {
+        let node = selection.getRangeAt(0).startContainer;
+        while (node && node.parentNode !== editor) node = node.parentNode;
+        if (node) insertPoint = node;
+      }
+      const video = document.createElement('video');
+      video.setAttribute('controls', '');
+      video.setAttribute('preload', 'metadata');
+      video.style.cssText = 'max-width:100%;border-radius:8px;margin:20px 0;';
+      const source = document.createElement('source');
+      source.setAttribute('src', src);
+      if (type) source.setAttribute('type', type);
+      video.appendChild(source);
+      insertPoint.parentNode.insertBefore(video, insertPoint.nextSibling);
+      const p = document.createElement('p');
+      p.innerHTML = '<br>';
+      video.parentNode.insertBefore(p, video.nextSibling);
+      showToast('视频已插入');
+    }
+
+    // Helper: insert <iframe> element into editor DOM
+    function insertIframeElement(src) {
+      const editor = quill.root;
+      const selection = window.getSelection();
+      let insertPoint = editor.lastElementChild || editor;
+      if (selection.rangeCount > 0) {
+        let node = selection.getRangeAt(0).startContainer;
+        while (node && node.parentNode !== editor) node = node.parentNode;
+        if (node) insertPoint = node;
+      }
+      const iframe = document.createElement('iframe');
+      iframe.setAttribute('width', '100%');
+      iframe.setAttribute('height', '400');
+      iframe.setAttribute('src', src);
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('allowfullscreen', '');
+      iframe.style.cssText = 'border-radius:8px;margin:20px 0;';
+      insertPoint.parentNode.insertBefore(iframe, insertPoint.nextSibling);
+      const p = document.createElement('p');
+      p.innerHTML = '<br>';
+      iframe.parentNode.insertBefore(p, iframe.nextSibling);
+      showToast('视频已插入');
+    }
+
+    // Toast
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    // Paste image handler — 粘贴图片自动上传
+    quill.root.addEventListener('paste', (e) => {
+      const clipboardData = e.clipboardData || window.clipboardData;
+      if (!clipboardData || !clipboardData.items) return;
+
+      const imageItems = Array.from(clipboardData.items).filter(item => item.type.startsWith('image/'));
+      if (imageItems.length === 0) return;
+
+      // 阻止 Quill 默认粘贴行为（否则会插入 base64）
+      e.preventDefault();
+      e.stopPropagation();
+
+      imageItems.forEach(async (item) => {
+        let file = item.getAsFile();
+        if (!file) return;
+
+        createProgressOverlay();
+        try {
+          const result = await compressImage(file);
+          file = result.file;
+          if (result.compressed) {
+            updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+            await new Promise(r => setTimeout(r, 600));
+          }
+          const data = await uploadWithProgress(file);
+          if (data.success) {
+            updateProgress(100, '上传完成！');
+            await new Promise(r => setTimeout(r, 400));
+            const range = quill.getSelection(true);
+            quill.insertEmbed(range ? range.index : quill.getLength() - 1, 'image', data.url);
+            quill.setSelection((range ? range.index : quill.getLength() - 1) + 1);
+          } else {
+            alert(data.error || '粘贴图片上传失败');
+          }
+        } catch (err) {
+          alert('粘贴图片上传失败：' + err.message);
+        } finally {
+          hideProgress();
+        }
+      });
+    });
+
+    // Keyboard shortcut: Ctrl+S to save
+    document.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        saveDetail();
+      }
+    });
+
+    loadWork();
+  </script>
+</body>
+</html>

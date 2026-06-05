@@ -1,0 +1,188 @@
+{
+  "siteInfo": {
+    "siteName": "JILLBOO ",
+    "brand": "JILLBOO",
+    "subtitle": "美团平台设计中心负责人",
+    "email": "JILLBOO@VIP.QQ.COM",
+    "phone": "13126699201",
+    "location": "北京·中国",
+    "favicon": "/uploads/favicon.png",
+    "expertise": [
+      "平台设计",
+      "设计体系",
+      "团队管理"
+    ],
+    "social": {
+      "wechat": "jillboo"
+    },
+    "copyright": "©2026 JILLBOO",
+    "footer": ""
+  },
+  "hero": {
+    "image": "/uploads/1780407326493-164.png",
+    "hoverImage": "",
+    "topLeftTitle": "用设计\n创造价值",
+    "topRightTitle": "连接用户与业务\n共建美好体验",
+    "bottomLeftSubtitle": "数字化体验驱动业务增长",
+    "bottomLeftDesc": "专注于设计体系建设与体验创新\n助力业务增长与用户价值创造",
+    "bottomRightDesc": "带领团队打造美团设计体系与平台能力\n通过设计驱动产品创新与业务增长\n为数亿用户提供更好的体验"
+  },
+  "about": {
+    "description": "我是于磊，美团平台设计中心负责人。长期专注于平台型体验、设计体系与增长设计，致力于通过设计连接用户与业务，推动产品创新、效率提升与商业增长。\n我带领团队建设平台设计能力，协同产品、运营与技术，将复杂业务问题转化为清晰、高质量的用户体验，为数亿用户提供更顺畅、更有价值的服务。",
+    "image1": "/uploads/1780417352385-468130.jpeg",
+    "image2": "/uploads/1780417356851-280711.jpeg",
+    "works": 140,
+    "years": 16,
+    "title": "About ",
+    "number": "S01",
+    "statLabel1": "团队规模",
+    "statLabel2": "工作年限"
+  },
+  "experienceSection": {
+    "title": "Expirience",
+    "number": "S02"
+  },
+  "experiences": [
+    {
+      "id": 1,
+      "startDate": "2016.02",
+      "endDate": "至今",
+      "role": "美团用户增长与运营设计（专业+业务线）",
+      "company": "美团",
+      "description": "28人团队\n拉齐美团各业务线营销与设计标准，提升营销体验与一致性，打通美团会员核心交易场景设计体验，并结合AI手段提效。"
+    },
+    {
+      "id": 2,
+      "startDate": "",
+      "endDate": "",
+      "role": "即时零售创意营销设计（专业+业务线）",
+      "company": "",
+      "description": "26人团队\n负责外卖、闪购、医药业务创意营销、营销体验、品牌设计，提质效、提体验、降成本。"
+    },
+    {
+      "id": 3,
+      "startDate": "",
+      "endDate": "",
+      "role": "拼好饭与外卖增长设计（业务线）",
+      "company": "",
+      "description": "16人团队\n负责拼好饭与外卖增长设计体验、创意营销、品牌设计，探索期与成长期产品紧跟业务节奏，打品牌、提升体验降万服，促增长。"
+    },
+    {
+      "id": 4,
+      "startDate": "",
+      "endDate": "",
+      "role": "到家品牌营销设计（专业线）",
+      "company": "",
+      "description": "30人团队\n负责外卖、闪购、履约品牌与创意营销设计，提质量、提效率、降成本。"
+    },
+    {
+      "id": 5,
+      "startDate": "2013.10",
+      "endDate": "2016.01",
+      "role": "体验与营销设计",
+      "company": "网易",
+      "description": "负责网易彩票、网易火车票、网易电影票体验与营销设计。"
+    }
+  ],
+  "works": [
+    {
+      "id": 1,
+      "name": "Opollo",
+      "tags": "WEB DESIGN,IDENTITY",
+      "year": "2024",
+      "category": "E-commerce",
+      "image": "/uploads/1780428022426-467705.png",
+      "detail": "<p><img src=\"/uploads/1780420023560-60065.png\"></p>"
+    },
+    {
+      "id": 2,
+      "name": "Mexxis",
+      "tags": "WEB DESIGN,IDENTITY",
+      "year": "2024",
+      "category": "Brand",
+      "image": "/uploads/1780428030854-841333.png"
+    },
+    {
+      "id": 3,
+      "name": "Tricamarum",
+      "tags": "IDENTITY",
+      "year": "2024",
+      "category": "Fashion",
+      "image": "/uploads/1780428036828-120067.png"
+    },
+    {
+      "id": 4,
+      "name": "Cammel",
+      "tags": "IDENTITY",
+      "year": "2023",
+      "category": "Ecommerce",
+      "image": "https://framerusercontent.com/images/Gp9NmtjMihVVhK8n12WXkLjCCc.webp?width=3400&height=3000"
+    },
+    {
+      "id": 5,
+      "name": "Basic Agency",
+      "tags": "WEB DESIGN",
+      "year": "2023",
+      "category": "Digital",
+      "image": "https://framerusercontent.com/images/pIHOb9uliNDuFmVzaeyidejo.webp?width=3400&height=3000"
+    },
+    {
+      "id": 6,
+      "name": "Capsseventeen",
+      "tags": "WEB DESIGN",
+      "year": "2023",
+      "category": "Digital",
+      "image": "https://framerusercontent.com/images/LkOCkXBKT6NxMbQOrawssUX0yg.webp?width=4000&height=2800"
+    }
+  ],
+  "services": {
+    "description": "As a web designer, I specialize in creating engaging, user-centric websites and visual experiences that reflect your brand's unique identity. My expertise spans a range of key design services, each aimed at delivering beautiful, functional, and effective digital solutions.",
+    "specializations": [
+      "Ecommerce",
+      "Entertainments",
+      "Real estate",
+      "Bussines",
+      "Marketing",
+      "Fintech"
+    ],
+    "headings": [
+      "WEB DESIGN",
+      "DEVELOPMENT",
+      "IDENTITY"
+    ]
+  },
+  "process": {
+    "images": [
+      "https://framerusercontent.com/images/8QOlITfdO5atoD3839kI8BEsBk.webp?width=1000&height=1000",
+      "https://framerusercontent.com/images/4b0aBNbAkLQYLTWsPcAbE3aLyUI.jpg?width=1920&height=2880",
+      "https://framerusercontent.com/images/FPZrK4nMaLSjdtT7RNzZJ4EYdU.webp?width=1000&height=1000",
+      "https://framerusercontent.com/images/yKbcBIOMR1bi9ftepGOLtrcGv8.webp?width=2000&height=2000"
+    ],
+    "steps": [
+      {
+        "id": 1,
+        "title": "DESIGN AND EXECUTION",
+        "description": "I start by getting to know you and your business in depth. Through an in-depth consultation, I find out your goals, target audience, and unique value proposition. I then conduct comprehensive market research and competitor analysis to inform our strategy."
+      },
+      {
+        "id": 2,
+        "title": "CREATIVE CONCEPTING",
+        "description": "I collaborate with you to set clear, attainable objectives that align with your business goals. Together, we create a strategic plan that details the project timeline, key milestones, and deliverables, ensuring transparency and clarity throughout the entire process."
+      },
+      {
+        "id": 3,
+        "title": "STRATEGY DEVELOPMENT",
+        "description": "As a designer, I bring ideas to life with a keen attention to detail, creating visually impressive and functional elements. I present design iterations to you for review and make adjustments based on your wishes, all processes are transparent."
+      },
+      {
+        "id": 4,
+        "title": "DISCOVERY",
+        "description": "Understanding Your Vision: We start by getting to know you and your business. Through detailed consultations, we uncover your goals, target audience, and unique selling points. Research and Analysis: We conduct thorough market research and competitor analysis to inform our strategy and ensure your design stands out."
+      }
+    ]
+  },
+  "contact": {
+    "heading": "Interested in working with us?",
+    "email": "HELLO@GORDIAN.COM"
+  }
+}
