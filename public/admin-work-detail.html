@@ -1073,12 +1073,9 @@ padding: 0 180px;
               updateProgress(100, '上传完成！');
               await new Promise(r => setTimeout(r, 400));
               hideProgress();
-              const video = document.createElement('video');
-              video.setAttribute('controls', '');
-              video.setAttribute('preload', 'metadata');
-              video.src = data.url;
-              video.style.cssText = 'max-width:100%;border-radius:6px;margin:8px 0;display:block;';
-              insertIntoSubEditor(video);
+              const editor = getSubEditor();
+              const videoHtml = `<div><video controls preload="metadata" src="${data.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;"></video></div><br>`;
+              editor.innerHTML += videoHtml;
             } else {
               hideProgress();
               alert(data.error || '上传失败');
