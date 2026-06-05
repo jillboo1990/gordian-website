@@ -824,7 +824,11 @@ padding: 0 180px;
         node.setAttribute('controls', '');
         node.setAttribute('preload', 'metadata');
         node.setAttribute('src', value);
-        node.style.cssText = 'max-width:100%;border-radius:8px;margin:20px 0;display:block;';
+        node.setAttribute('playsinline', '');
+        node.style.cssText = 'width:100%;max-width:100%;border-radius:8px;margin:20px 0;display:block;';
+        // Prevent autoplay in editor
+        node.removeAttribute('autoplay');
+        node.pause && node.pause();
         return node;
       }
       static value(node) {
