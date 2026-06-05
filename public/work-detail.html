@@ -377,7 +377,7 @@
 
         if (work.detail && work.detail.trim()) {
           document.getElementById('detailContent').innerHTML = work.detail;
-          // Make all videos autoplay, muted, loop, with poster from first frame
+          // Make all videos autoplay, muted, loop, show first frame immediately
           document.querySelectorAll('.detail-content video').forEach(video => {
             video.setAttribute('controls', '');
             video.setAttribute('playsinline', '');
@@ -389,18 +389,20 @@
             video.style.width = '100%';
             video.style.borderRadius = '0';
             video.style.display = 'block';
-            // Generate poster from first frame
-            video.addEventListener('loadeddata', function() {
-              if (!video.getAttribute('poster')) {
-                try {
-                  const canvas = document.createElement('canvas');
-                  canvas.width = video.videoWidth;
-                  canvas.height = video.videoHeight;
-                  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-                  video.setAttribute('poster', canvas.toDataURL('image/jpeg', 0.8));
-                } catch(e) {}
+            video.style.backgroundColor = '#000';
+            // Append #t=0.001 to src to force first frame display before play
+            const src = video.getAttribute('src');
+            if (src && !src.includes('#t=')) {
+              video.setAttribute('src', src + '#t=0.001');
+            }
+            // Also check source elements
+            video.querySelectorAll('source').forEach(source => {
+              const sSrc = source.getAttribute('src');
+              if (sSrc && !sSrc.includes('#t=')) {
+                source.setAttribute('src', sSrc + '#t=0.001');
               }
-            }, { once: true });
+            });
+            video.load();
             video.play().catch(() => {});
           });
           // Remove margins from p tags that contain only images/videos
