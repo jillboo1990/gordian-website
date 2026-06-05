@@ -377,15 +377,19 @@
 
         if (work.detail && work.detail.trim()) {
           document.getElementById('detailContent').innerHTML = work.detail;
-          // Ensure all videos are playable with controls
+          // Make all videos autoplay, muted, loop
           document.querySelectorAll('.detail-content video').forEach(video => {
             video.setAttribute('controls', '');
             video.setAttribute('playsinline', '');
-            video.setAttribute('preload', 'metadata');
-            video.removeAttribute('autoplay');
+            video.setAttribute('preload', 'auto');
+            video.setAttribute('autoplay', '');
+            video.setAttribute('muted', '');
+            video.setAttribute('loop', '');
+            video.muted = true;
             video.style.width = '100%';
             video.style.borderRadius = '0';
             video.style.display = 'block';
+            video.play().catch(() => {});
           });
           // Remove margins from p tags that contain only images/videos
           document.querySelectorAll('.detail-content p').forEach(p => {
