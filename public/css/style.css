@@ -370,7 +370,7 @@ margin-bottom: 30px;
   position: relative;
   margin: 0 auto 40px;
   cursor: pointer;
-  border: 1.5px solid var(--gray-lighter);
+  border: none;
   border-radius: 100px;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   overflow: hidden;
@@ -397,7 +397,6 @@ margin-bottom: 30px;
 }
 
 .resume-download-btn:hover {
-  border-color: var(--black);
   color: var(--white);
   transform: translateY(-3px);
   box-shadow: -26px 26px 60px rgba(0, 0, 0, 0.3), -10px 10px 24px rgba(0, 0, 0, 0.15);
