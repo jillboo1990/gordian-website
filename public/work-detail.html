@@ -380,27 +380,38 @@
           document.getElementById('detailContent').innerHTML = work.detail;
           // Make all videos autoplay (muted + loop + controls)
           document.querySelectorAll('.detail-content video').forEach(video => {
+            const src = video.getAttribute('src');
             // Clear any inline styles from editor that cause gaps
             video.removeAttribute('style');
-            video.controls = true;
-            video.playsInline = true;
-            video.preload = 'auto';
-            video.autoplay = true;
+            video.style.cssText = 'width:100%;display:block;margin:0;padding:0;border-radius:0;background:#000;';
+            // Set autoplay attributes
             video.muted = true;
             video.loop = true;
-            video.style.cssText = 'width:100%;display:block;margin:0;padding:0;border-radius:0;background:#000;';
-            // Force play after canplay
-            const tryPlay = () => {
-              video.muted = true;
-              video.play().catch(() => {});
-            };
-            if (video.readyState >= 3) {
-              tryPlay();
-            } else {
-              video.addEventListener('canplay', tryPlay, { once: true });
-              // Fallback: also try on loadeddata
-              video.addEventListener('loadeddata', tryPlay, { once: true });
-            }
+            video.controls = true;
+            video.playsInline = true;
+            video.autoplay = true;
+            video.setAttribute('muted', '');
+            video.setAttribute('autoplay', '');
+            video.setAttribute('loop', '');
+            video.setAttribute('playsinline', '');
+            // Re-assign src and load to ensure events fire after our listeners
+            video.removeAttribute('src');
+            video.load();
+            video.setAttribute('src', src);
+            video.load();
+            video.play().catch(() => {
+              // If play fails, retry on user interaction with page
+              const retryPlay = () => {
+                video.muted = true;
+                video.play().catch(() => {});
+                document.removeEventListener('click', retryPlay);
+                document.removeEventListener('touchstart', retryPlay);
+                document.removeEventListener('scroll', retryPlay);
+              };
+              document.addEventListener('click', retryPlay, { once: true });
+              document.addEventListener('touchstart', retryPlay, { once: true });
+              document.addEventListener('scroll', retryPlay, { once: true });
+            });
           });
           // Remove all gaps between media elements
           document.querySelectorAll('.detail-content p').forEach(p => {
