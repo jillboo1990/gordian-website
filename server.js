@@ -234,16 +234,20 @@ app.get('/api/time', (req, res) => {
 });
 
 app.get('/api/data', async (req, res) => {
-  try {
-    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
-    const data = await readData();
-    // Filter out hidden works for public API
-    if (data.works) {
-      data.works = data.works.filter(w => !w.hidden);
-    }
-    res.json(data);
-  } catch (err) {
-    res.status(500).json({ error: '读取数据失败' });
+try {
+res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+const data = await readData();
+// Filter out hidden works for public API
+if (data.works) {
+data.works = data.works.filter(w => !w.hidden).map(w => {
+// Exclude detail field from listing to reduce payload size
+const { detail, ...rest } = w;
+return rest;
+});
+}
+res.json(data);
+} catch (err) {
+res.status(500).json({ error: '读取数据失败' });
   }
 });
 
