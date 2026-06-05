@@ -1069,25 +1069,23 @@ padding: 0 180px;
             }
             updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
             const data = await uploadWithProgress(file);
-            if (data.success) {
+            if (data.success && data.url) {
               updateProgress(100, '上传完成！');
               await new Promise(r => setTimeout(r, 400));
+              hideProgress();
               const video = document.createElement('video');
               video.setAttribute('controls', '');
               video.setAttribute('preload', 'metadata');
+              video.src = data.url;
               video.style.cssText = 'max-width:100%;border-radius:6px;margin:8px 0;display:block;';
-              const source = document.createElement('source');
-              source.src = data.url;
-              if (file.type) source.type = file.type;
-              video.appendChild(source);
               insertIntoSubEditor(video);
             } else {
+              hideProgress();
               alert(data.error || '上传失败');
             }
           } catch (err) {
-            alert('上传失败：' + err.message);
-          } finally {
             hideProgress();
+            alert('上传失败：' + err.message);
           }
         };
         input.click();
@@ -1285,11 +1283,8 @@ padding: 0 180px;
       const video = document.createElement('video');
       video.setAttribute('controls', '');
       video.setAttribute('preload', 'metadata');
+      video.src = src;
       video.style.cssText = 'max-width:100%;border-radius:8px;margin:20px 0;';
-      const source = document.createElement('source');
-      source.setAttribute('src', src);
-      if (type) source.setAttribute('type', type);
-      video.appendChild(source);
       insertPoint.parentNode.insertBefore(video, insertPoint.nextSibling);
       const p = document.createElement('p');
       p.innerHTML = '<br>';
