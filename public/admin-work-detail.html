@@ -680,8 +680,9 @@ padding: 0 180px;
     }
 
 
-    // Compress video using Canvas + MediaRecorder (target: under 3.5MB for server upload)
-    async function compressVideo(file, maxSizeMB = 3.5) {
+    // Compress video using Canvas + MediaRecorder (target: under 4.2MB for server upload)
+    // Strategy: keep resolution as high as possible, use high bitrate, only scale if truly needed
+    async function compressVideo(file, maxSizeMB = 4.2) {
       if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
       const originalSize = file.size;
       updateProgress(0, `视频压缩中... 原始大小 ${formatSize(originalSize)}`);
@@ -693,13 +694,13 @@ padding: 0 180px;
         video.preload = 'auto';
 
         video.onloadedmetadata = () => {
-          // Determine target resolution (max 480p to keep file small)
+          // Keep original resolution unless > 1080p
           let w = video.videoWidth, h = video.videoHeight;
-          const maxDim = 480;
-          if (h > maxDim || w > maxDim) {
-            const ratio = Math.min(maxDim / h, maxDim / w);
+          const maxH = 1080;
+          if (h > maxH) {
+            const ratio = maxH / h;
             w = Math.round(w * ratio);
-            h = Math.round(h * ratio);
+            h = maxH;
           }
           // Ensure even dimensions
           w = w % 2 === 0 ? w : w + 1;
@@ -710,10 +711,13 @@ padding: 0 180px;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
 
-          // Target bitrate based on desired output size (conservative for 3.5MB limit)
+          // High quality bitrate: use most of the size budget
           const duration = video.duration;
-          const targetBits = Math.min(800000, (maxSizeMB * 0.8 * 8 * 1024 * 1024) / duration);
-          const stream = canvas.captureStream(20);
+          // For short videos (<10s) allow up to 4Mbps; for longer ones auto-scale down
+          const targetBits = Math.min(4000000, (maxSizeMB * 0.9 * 8 * 1024 * 1024) / duration);
+          // Use original framerate or cap at 30fps
+          const fps = Math.min(30, 60);
+          const stream = canvas.captureStream(fps);
 
           // Add audio track if present
           try {
@@ -725,8 +729,12 @@ padding: 0 180px;
             dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
           } catch(e) { /* no audio track or not supported */ }
 
+          // Prefer VP9 for better quality at same bitrate, fallback to VP8
+          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9'
+            : 'video/webm;codecs=vp8';
           const recorder = new MediaRecorder(stream, {
-            mimeType: MediaRecorder.isTypeSupported('video/webm;codecs=vp9') ? 'video/webm;codecs=vp9' : 'video/webm',
+            mimeType,
             videoBitsPerSecond: targetBits
           });
 
@@ -735,6 +743,12 @@ padding: 0 180px;
           recorder.onstop = () => {
             const blob = new Blob(chunks, { type: 'video/webm' });
             const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.webm'), { type: 'video/webm' });
+            // If compressed is still too large, do a second pass with lower quality
+            if (compressed.size > maxSizeMB * 1024 * 1024) {
+              updateProgress(0, `二次压缩中...`);
+              compressVideoPass2(file, maxSizeMB).then(resolve).catch(() => resolve({ file: compressed, compressed: true, originalSize, compressedSize: compressed.size }));
+              return;
+            }
             updateProgress(0, `视频已压缩: ${formatSize(originalSize)} → ${formatSize(compressed.size)}`);
             URL.revokeObjectURL(video.src);
             resolve({ file: compressed, compressed: true, originalSize, compressedSize: compressed.size });
@@ -768,6 +782,74 @@ padding: 0 180px;
           resolve({ file, compressed: false });
         };
 
+        video.src = URL.createObjectURL(file);
+      });
+    }
+
+    // Second pass compression with reduced quality (720p, lower bitrate) as fallback
+    async function compressVideoPass2(file, maxSizeMB) {
+      return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.muted = true;
+        video.playsInline = true;
+        video.preload = 'auto';
+
+        video.onloadedmetadata = () => {
+          let w = video.videoWidth, h = video.videoHeight;
+          const maxH = 720;
+          if (h > maxH) {
+            const ratio = maxH / h;
+            w = Math.round(w * ratio);
+            h = maxH;
+          }
+          w = w % 2 === 0 ? w : w + 1;
+          h = h % 2 === 0 ? h : h + 1;
+
+          const canvas = document.createElement('canvas');
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext('2d');
+
+          const duration = video.duration;
+          const targetBits = Math.min(2000000, (maxSizeMB * 0.85 * 8 * 1024 * 1024) / duration);
+          const stream = canvas.captureStream(30);
+
+          try {
+            const audioCtx = new AudioContext();
+            const source = audioCtx.createMediaElementSource(video);
+            const dest = audioCtx.createMediaStreamDestination();
+            source.connect(dest);
+            source.connect(audioCtx.destination);
+            dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+          } catch(e) {}
+
+          const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+            ? 'video/webm;codecs=vp9' : 'video/webm;codecs=vp8';
+          const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: targetBits });
+
+          const chunks = [];
+          recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+          recorder.onstop = () => {
+            const blob = new Blob(chunks, { type: 'video/webm' });
+            const compressed = new File([blob], file.name.replace(/\.[^.]+$/, '.webm'), { type: 'video/webm' });
+            updateProgress(0, `视频已压缩(二次): ${formatSize(file.size)} → ${formatSize(compressed.size)}`);
+            URL.revokeObjectURL(video.src);
+            resolve({ file: compressed, compressed: true, originalSize: file.size, compressedSize: compressed.size });
+          };
+          recorder.onerror = () => { URL.revokeObjectURL(video.src); reject(); };
+
+          recorder.start(100);
+          video.play();
+          const drawFrame = () => {
+            if (video.ended || video.paused) { recorder.stop(); return; }
+            ctx.drawImage(video, 0, 0, w, h);
+            requestAnimationFrame(drawFrame);
+          };
+          requestAnimationFrame(drawFrame);
+          video.onended = () => { setTimeout(() => recorder.stop(), 200); };
+        };
+
+        video.onerror = () => reject();
         video.src = URL.createObjectURL(file);
       });
     }
@@ -1080,13 +1162,13 @@ padding: 0 180px;
           if (!file) return;
           createProgressOverlay();
           try {
-            // Compress video to fit server upload limit (3.5MB)
-            if (file.size > 3.5 * 1024 * 1024) {
+            // Compress video to fit server upload limit (4.2MB)
+            if (file.size > 4.2 * 1024 * 1024) {
               try {
                 updateProgress(0, '开始压缩视频...');
                 const result = await Promise.race([
                   compressVideo(file),
-                  new Promise((_, reject) => setTimeout(() => reject(new Error('压缩超时')), 120000))
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('压缩超时')), 180000))
                 ]);
                 file = result.file;
                 if (result.compressed) {
@@ -1259,13 +1341,13 @@ padding: 0 180px;
           if (!file) return;
           createProgressOverlay();
           try {
-            // Compress video to fit server upload limit (3.5MB)
-            if (file.size > 3.5 * 1024 * 1024) {
+            // Compress video to fit server upload limit (4.2MB)
+            if (file.size > 4.2 * 1024 * 1024) {
               try {
                 updateProgress(0, '开始压缩视频...');
                 const result = await Promise.race([
                   compressVideo(file),
-                  new Promise((_, reject) => setTimeout(() => reject(new Error('压缩超时')), 120000))
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('压缩超时')), 180000))
                 ]);
                 file = result.file;
                 if (result.compressed) {

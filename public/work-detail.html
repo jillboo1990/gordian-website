@@ -204,12 +204,45 @@
       text-align: center;
       padding: 80px 40px;
       color: var(--gray-mid);
+      display: none;
+    }
+
+    .empty-state.visible {
+      display: block;
     }
 
     .empty-state h3 {
       font-size: 18px;
       margin-bottom: 8px;
       color: var(--gray-dark);
+    }
+
+    /* Skeleton loading */
+    .skeleton {
+      padding: 40px 0;
+    }
+
+    .skeleton-line {
+      height: 14px;
+      background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s infinite;
+      border-radius: 4px;
+      margin-bottom: 16px;
+    }
+
+    .skeleton-line:nth-child(1) { width: 95%; }
+    .skeleton-line:nth-child(2) { width: 80%; }
+    .skeleton-line:nth-child(3) { width: 90%; }
+    .skeleton-line:nth-child(4) { width: 70%; }
+    .skeleton-line:nth-child(5) { width: 85%; }
+    .skeleton-line:nth-child(6) { width: 60%; height: 200px; margin-top: 24px; }
+    .skeleton-line:nth-child(7) { width: 88%; margin-top: 24px; }
+    .skeleton-line:nth-child(8) { width: 75%; }
+
+    @keyframes shimmer {
+      0% { background-position: 200% 0; }
+      100% { background-position: -200% 0; }
     }
 
     @media (max-width: 768px) {
@@ -276,6 +309,16 @@
   </div>
 
   <div class="detail-content" id="detailContent">
+    <div class="skeleton" id="skeletonLoading">
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+      <div class="skeleton-line"></div>
+    </div>
     <div class="empty-state" id="emptyState">
       <h3>暂无详情内容</h3>
       <p>该作品尚未添加详细介绍</p>
@@ -329,6 +372,9 @@
         document.getElementById('metaYear').textContent = work.year;
         document.getElementById('metaCategory').textContent = work.category;
 
+        // Hide skeleton
+        document.getElementById('skeletonLoading').style.display = 'none';
+
         if (work.detail && work.detail.trim()) {
           document.getElementById('detailContent').innerHTML = work.detail;
           // Remove margins from p tags that contain only images/videos
@@ -345,9 +391,14 @@
             }
           });
           initCollapsible();
+        } else {
+          // No detail content, show empty state
+          document.getElementById('emptyState').classList.add('visible');
         }
       } catch (err) {
         console.error(err);
+        document.getElementById('skeletonLoading').style.display = 'none';
+        document.getElementById('emptyState').classList.add('visible');
       }
     }
 
