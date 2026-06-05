@@ -377,33 +377,28 @@
 
         if (work.detail && work.detail.trim()) {
           document.getElementById('detailContent').innerHTML = work.detail;
-          // Make all videos autoplay, muted, loop, show first frame immediately
+          // Make all videos autoplay (muted + loop + controls)
           document.querySelectorAll('.detail-content video').forEach(video => {
-            video.setAttribute('controls', '');
-            video.setAttribute('playsinline', '');
-            video.setAttribute('preload', 'auto');
-            video.setAttribute('autoplay', '');
-            video.setAttribute('muted', '');
-            video.setAttribute('loop', '');
+            video.controls = true;
+            video.playsInline = true;
+            video.preload = 'auto';
+            video.autoplay = true;
             video.muted = true;
+            video.loop = true;
             video.style.width = '100%';
             video.style.borderRadius = '0';
             video.style.display = 'block';
             video.style.backgroundColor = '#000';
-            // Append #t=0.001 to src to force first frame display before play
-            const src = video.getAttribute('src');
-            if (src && !src.includes('#t=')) {
-              video.setAttribute('src', src + '#t=0.001');
+            // Force play after canplay
+            const tryPlay = () => {
+              video.muted = true;
+              video.play().catch(() => {});
+            };
+            if (video.readyState >= 3) {
+              tryPlay();
+            } else {
+              video.addEventListener('canplay', tryPlay, { once: true });
             }
-            // Also check source elements
-            video.querySelectorAll('source').forEach(source => {
-              const sSrc = source.getAttribute('src');
-              if (sSrc && !sSrc.includes('#t=')) {
-                source.setAttribute('src', sSrc + '#t=0.001');
-              }
-            });
-            video.load();
-            video.play().catch(() => {});
           });
           // Remove margins from p tags that contain only images/videos
           document.querySelectorAll('.detail-content p').forEach(p => {
