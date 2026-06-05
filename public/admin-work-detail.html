@@ -817,6 +817,24 @@ padding: 0 180px;
 
     Quill.register(CollapseBlot);
 
+    // Custom Video Blot so Quill recognizes <video> elements
+    class VideoBlot extends BlockEmbed {
+      static create(value) {
+        const node = super.create();
+        node.setAttribute('controls', '');
+        node.setAttribute('preload', 'metadata');
+        node.setAttribute('src', value);
+        node.style.cssText = 'max-width:100%;border-radius:8px;margin:20px 0;display:block;';
+        return node;
+      }
+      static value(node) {
+        return node.getAttribute('src');
+      }
+    }
+    VideoBlot.blotName = 'videoBlock';
+    VideoBlot.tagName = 'VIDEO';
+    Quill.register(VideoBlot);
+
     // Initialize Quill
     const quill = new Quill('#editor', {
       theme: 'snow',
@@ -1077,15 +1095,12 @@ padding: 0 180px;
             }
             updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
             const data = await uploadWithProgress(file);
-            alert('DEBUG upload result: ' + JSON.stringify(data));
             if (data.success && data.url) {
               updateProgress(100, '上传完成！');
               await new Promise(r => setTimeout(r, 400));
               hideProgress();
               const editor = getSubEditor();
-              const videoHtml = `<div><video controls preload="metadata" src="${data.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;"></video></div><br>`;
-              editor.innerHTML += videoHtml;
-              alert('DEBUG inserted HTML, editor innerHTML length: ' + editor.innerHTML.length);
+              editor.innerHTML += `<div><video controls preload="metadata" src="${data.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;"></video></div><br>`;
             } else {
               hideProgress();
               alert(data.error || '上传失败');
@@ -1277,25 +1292,12 @@ padding: 0 180px;
       }
     }
 
-    // Helper: insert <video> element into editor DOM
+    // Helper: insert <video> element via Quill API
     function insertVideoElement(src, type) {
-      const editor = quill.root;
-      const selection = window.getSelection();
-      let insertPoint = editor.lastElementChild || editor;
-      if (selection.rangeCount > 0) {
-        let node = selection.getRangeAt(0).startContainer;
-        while (node && node.parentNode !== editor) node = node.parentNode;
-        if (node) insertPoint = node;
-      }
-      const video = document.createElement('video');
-      video.setAttribute('controls', '');
-      video.setAttribute('preload', 'metadata');
-      video.src = src;
-      video.style.cssText = 'max-width:100%;border-radius:8px;margin:20px 0;';
-      insertPoint.parentNode.insertBefore(video, insertPoint.nextSibling);
-      const p = document.createElement('p');
-      p.innerHTML = '<br>';
-      video.parentNode.insertBefore(p, video.nextSibling);
+      const range = quill.getSelection(true);
+      const index = range ? range.index : quill.getLength() - 1;
+      quill.insertEmbed(index, 'videoBlock', src);
+      quill.setSelection(index + 1);
       showToast('视频已插入');
     }
 
