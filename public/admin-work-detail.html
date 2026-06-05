@@ -1069,6 +1069,7 @@ padding: 0 180px;
             }
             updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
             const data = await uploadWithProgress(file);
+            alert('DEBUG upload result: ' + JSON.stringify(data));
             if (data.success && data.url) {
               updateProgress(100, '上传完成！');
               await new Promise(r => setTimeout(r, 400));
@@ -1076,6 +1077,7 @@ padding: 0 180px;
               const editor = getSubEditor();
               const videoHtml = `<div><video controls preload="metadata" src="${data.url}" style="max-width:100%;border-radius:6px;margin:8px 0;display:block;"></video></div><br>`;
               editor.innerHTML += videoHtml;
+              alert('DEBUG inserted HTML, editor innerHTML length: ' + editor.innerHTML.length);
             } else {
               hideProgress();
               alert(data.error || '上传失败');
