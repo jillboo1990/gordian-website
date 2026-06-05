@@ -4,7 +4,6 @@ const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
 const { put, list, del } = require('@vercel/blob');
-const { generateClientTokenFromReadWriteToken } = require('@vercel/blob/client');
 
 const app = express();
 const PORT = 4000;
@@ -275,29 +274,6 @@ app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res)
   }
 });
 
-// ===== Client Direct Upload Token (for large files > 4MB) =====
-app.post('/api/upload/token', authMiddleware, async (req, res) => {
-  try {
-    if (!BLOB_TOKEN) {
-      return res.status(400).json({ error: 'Blob storage not configured' });
-    }
-    const { filename, contentType } = req.body;
-    if (!filename) {
-      return res.status(400).json({ error: 'filename is required' });
-    }
-    const pathname = 'uploads/' + Date.now() + '-' + filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const clientToken = await generateClientTokenFromReadWriteToken({
-      token: BLOB_TOKEN,
-      pathname,
-      allowedContentTypes: contentType ? [contentType] : ['video/*', 'image/*', 'application/octet-stream'],
-      validUntil: Date.now() + 10 * 60 * 1000,
-      maximumSizeInBytes: 500 * 1024 * 1024,
-    });
-    res.json({ success: true, clientToken, pathname });
-  } catch (err) {
-    res.status(500).json({ error: 'Token generation failed: ' + err.message });
-  }
-});
 
 // ===== Resume File Upload =====
 const resumeUpload = multer({

@@ -639,18 +639,8 @@ padding: 0 180px;
       return { file: compressed, compressed: true, originalSize, compressedSize: compressed.size };
     }
 
-    // Upload with progress using XMLHttpRequest
-    // For files <= 4MB: use standard multipart upload
-    // For files > 4MB: get client token and upload directly to Vercel Blob
+    // Upload with progress using XMLHttpRequest (all files go through server)
     async function uploadWithProgress(file) {
-      const MAX_DIRECT = 4 * 1024 * 1024; // 4MB threshold
-
-      if (file.size > MAX_DIRECT) {
-        // Large file: client-direct upload to Vercel Blob
-        return await uploadLargeFile(file);
-      }
-
-      // Standard upload via server
       return new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         const formData = new FormData();
@@ -689,56 +679,9 @@ padding: 0 180px;
       });
     }
 
-    // Large file upload: get client token, then PUT directly to Vercel Blob (no SDK needed)
-    async function uploadLargeFile(file) {
-      updateProgress(0, '获取上传凭证...');
-      // Step 1: Get client token from our server
-      const tokenRes = await authFetch('/api/upload/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, contentType: file.type })
-      });
-      const tokenData = await tokenRes.json();
-      if (!tokenData.success) throw new Error(tokenData.error || '获取上传凭证失败');
 
-      // Step 2: Upload directly to Vercel Blob using XHR (supports progress)
-      updateProgress(0, `直传上传中... (${formatSize(file.size)})`);
-      return new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.upload.addEventListener('progress', (e) => {
-          if (e.lengthComputable) {
-            const pct = (e.loaded / e.total) * 100;
-            updateProgress(pct, `上传中... ${formatSize(e.loaded)} / ${formatSize(e.total)}`);
-          }
-        });
-        xhr.addEventListener('load', () => {
-          if (xhr.status >= 200 && xhr.status < 300) {
-            try {
-              const resp = JSON.parse(xhr.responseText);
-              resolve({ success: true, url: resp.url });
-            } catch (e) {
-              resolve({ success: true, url: xhr.getResponseHeader('x-blob-url') || '' });
-            }
-          } else {
-            reject(new Error(`上传失败 (${xhr.status}): ${xhr.responseText}`));
-          }
-        });
-        xhr.addEventListener('error', () => reject(new Error('网络错误')));
-        xhr.addEventListener('timeout', () => reject(new Error('上传超时')));
-        xhr.timeout = 600000; // 10 minutes for large files
-
-        // Vercel Blob client upload: PUT to blob.vercel-storage.com
-        xhr.open('PUT', `https://blob.vercel-storage.com/${tokenData.pathname}`);
-        xhr.setRequestHeader('authorization', `Bearer ${tokenData.clientToken}`);
-        xhr.setRequestHeader('x-api-version', '7');
-        xhr.setRequestHeader('x-content-type', file.type || 'application/octet-stream');
-        xhr.setRequestHeader('x-add-random-suffix', '1');
-        xhr.send(file);
-      });
-    }
-
-    // Compress video using Canvas + MediaRecorder
-    async function compressVideo(file, maxSizeMB = 20) {
+    // Compress video using Canvas + MediaRecorder (target: under 3.5MB for server upload)
+    async function compressVideo(file, maxSizeMB = 3.5) {
       if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
       const originalSize = file.size;
       updateProgress(0, `视频压缩中... 原始大小 ${formatSize(originalSize)}`);
@@ -750,13 +693,13 @@ padding: 0 180px;
         video.preload = 'auto';
 
         video.onloadedmetadata = () => {
-          // Determine target resolution (max 720p)
+          // Determine target resolution (max 480p to keep file small)
           let w = video.videoWidth, h = video.videoHeight;
-          const maxDim = 720;
-          if (h > maxDim) {
-            const ratio = maxDim / h;
+          const maxDim = 480;
+          if (h > maxDim || w > maxDim) {
+            const ratio = Math.min(maxDim / h, maxDim / w);
             w = Math.round(w * ratio);
-            h = maxDim;
+            h = Math.round(h * ratio);
           }
           // Ensure even dimensions
           w = w % 2 === 0 ? w : w + 1;
@@ -767,10 +710,10 @@ padding: 0 180px;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
 
-          // Target bitrate based on desired output size
+          // Target bitrate based on desired output size (conservative for 3.5MB limit)
           const duration = video.duration;
-          const targetBits = Math.min(1500000, (maxSizeMB * 8 * 1024 * 1024) / duration);
-          const stream = canvas.captureStream(24);
+          const targetBits = Math.min(800000, (maxSizeMB * 0.8 * 8 * 1024 * 1024) / duration);
+          const stream = canvas.captureStream(20);
 
           // Add audio track if present
           try {
@@ -1115,8 +1058,8 @@ padding: 0 180px;
           if (!file) return;
           createProgressOverlay();
           try {
-            // Compress if over 20MB
-            if (file.size > 20 * 1024 * 1024) {
+            // Compress video to fit server upload limit (3.5MB)
+            if (file.size > 3.5 * 1024 * 1024) {
               const result = await compressVideo(file);
               file = result.file;
               if (result.compressed) {
@@ -1292,8 +1235,8 @@ padding: 0 180px;
           if (!file) return;
           createProgressOverlay();
           try {
-            // Compress if over 20MB
-            if (file.size > 20 * 1024 * 1024) {
+            // Compress video to fit server upload limit (3.5MB)
+            if (file.size > 3.5 * 1024 * 1024) {
               const result = await compressVideo(file);
               file = result.file;
               if (result.compressed) {
