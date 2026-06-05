@@ -4,7 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
 const { put, list, del } = require('@vercel/blob');
-const { generateClientTokenFromReadWriteToken } = require('@vercel/blob');
+const { generateClientTokenFromReadWriteToken } = require('@vercel/blob/client');
 
 const app = express();
 const PORT = 4000;
