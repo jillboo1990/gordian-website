@@ -377,6 +377,16 @@
 
         if (work.detail && work.detail.trim()) {
           document.getElementById('detailContent').innerHTML = work.detail;
+          // Ensure all videos are playable with controls
+          document.querySelectorAll('.detail-content video').forEach(video => {
+            video.setAttribute('controls', '');
+            video.setAttribute('playsinline', '');
+            video.setAttribute('preload', 'metadata');
+            video.removeAttribute('autoplay');
+            video.style.width = '100%';
+            video.style.borderRadius = '0';
+            video.style.display = 'block';
+          });
           // Remove margins from p tags that contain only images/videos
           document.querySelectorAll('.detail-content p').forEach(p => {
             if (p.querySelector('img') || p.querySelector('video') || p.querySelector('iframe')) {
