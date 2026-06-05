@@ -377,7 +377,7 @@
 
         if (work.detail && work.detail.trim()) {
           document.getElementById('detailContent').innerHTML = work.detail;
-          // Make all videos autoplay, muted, loop
+          // Make all videos autoplay, muted, loop, with poster from first frame
           document.querySelectorAll('.detail-content video').forEach(video => {
             video.setAttribute('controls', '');
             video.setAttribute('playsinline', '');
@@ -389,6 +389,18 @@
             video.style.width = '100%';
             video.style.borderRadius = '0';
             video.style.display = 'block';
+            // Generate poster from first frame
+            video.addEventListener('loadeddata', function() {
+              if (!video.getAttribute('poster')) {
+                try {
+                  const canvas = document.createElement('canvas');
+                  canvas.width = video.videoWidth;
+                  canvas.height = video.videoHeight;
+                  canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+                  video.setAttribute('poster', canvas.toDataURL('image/jpeg', 0.8));
+                } catch(e) {}
+              }
+            }, { once: true });
             video.play().catch(() => {});
           });
           // Remove margins from p tags that contain only images/videos
