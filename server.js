@@ -4,6 +4,7 @@ const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
 const { put, list, del } = require('@vercel/blob');
+const { generateClientTokenFromReadWriteToken } = require('@vercel/blob');
 
 const app = express();
 const PORT = 4000;
@@ -274,46 +275,27 @@ app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res)
   }
 });
 
-// ===== Chunked Upload for large files (> 4MB) =====
-// Client sends file in chunks, server buffers them and uploads to Vercel Blob when complete
-const chunkedUploads = new Map(); // uploadId -> { chunks: Buffer[], filename, contentType }
-
-app.post('/api/upload/chunk/start', authMiddleware, async (req, res) => {
-  const { filename, contentType, totalSize } = req.body;
-  if (!filename) return res.status(400).json({ error: 'filename is required' });
-  const uploadId = Date.now() + '-' + Math.random().toString(36).slice(2);
-  chunkedUploads.set(uploadId, { chunks: [], filename, contentType, totalSize, received: 0 });
-  // Auto-cleanup after 10 minutes
-  setTimeout(() => chunkedUploads.delete(uploadId), 10 * 60 * 1000);
-  res.json({ success: true, uploadId });
-});
-
-// Receive raw binary chunks (up to 3.5MB each to stay well under 4.5MB limit)
-app.post('/api/upload/chunk/:uploadId', authMiddleware, express.raw({ type: '*/*', limit: '4mb' }), async (req, res) => {
-  const upload = chunkedUploads.get(req.params.uploadId);
-  if (!upload) return res.status(404).json({ error: 'Upload not found or expired' });
-  upload.chunks.push(Buffer.from(req.body));
-  upload.received += req.body.length;
-  res.json({ success: true, received: upload.received });
-});
-
-app.post('/api/upload/chunk/complete/:uploadId', authMiddleware, async (req, res) => {
-  const upload = chunkedUploads.get(req.params.uploadId);
-  if (!upload) return res.status(404).json({ error: 'Upload not found or expired' });
+// ===== Client Direct Upload Token (for large files > 4MB) =====
+app.post('/api/upload/token', authMiddleware, async (req, res) => {
   try {
-    const fullBuffer = Buffer.concat(upload.chunks);
-    const pathname = 'uploads/' + Date.now() + '-' + upload.filename.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const blob = await put(pathname, fullBuffer, {
-      access: 'public',
+    if (!BLOB_TOKEN) {
+      return res.status(400).json({ error: 'Blob storage not configured' });
+    }
+    const { filename, contentType } = req.body;
+    if (!filename) {
+      return res.status(400).json({ error: 'filename is required' });
+    }
+    const pathname = 'uploads/' + Date.now() + '-' + filename.replace(/[^a-zA-Z0-9._-]/g, '_');
+    const clientToken = await generateClientTokenFromReadWriteToken({
       token: BLOB_TOKEN,
-      contentType: upload.contentType || 'application/octet-stream',
-      addRandomSuffix: true,
+      pathname,
+      allowedContentTypes: contentType ? [contentType] : ['video/*', 'image/*', 'application/octet-stream'],
+      validUntil: Date.now() + 10 * 60 * 1000,
+      maximumSizeInBytes: 500 * 1024 * 1024,
     });
-    chunkedUploads.delete(req.params.uploadId);
-    res.json({ success: true, url: blob.url });
+    res.json({ success: true, clientToken, pathname });
   } catch (err) {
-    chunkedUploads.delete(req.params.uploadId);
-    res.status(500).json({ error: '上传到存储失败: ' + err.message });
+    res.status(500).json({ error: 'Token generation failed: ' + err.message });
   }
 });
 

@@ -689,51 +689,52 @@ padding: 0 180px;
       });
     }
 
-    // Large file upload: get client token, then use @vercel/blob SDK put()
+    // Large file upload: get client token, then PUT directly to Vercel Blob (no SDK needed)
     async function uploadLargeFile(file) {
-      const CHUNK_SIZE = 3 * 1024 * 1024; // 3MB chunks (well under 4.5MB limit)
-      const totalChunks = Math.ceil(file.size / CHUNK_SIZE);
-
-      // Step 1: Start chunked upload session
-      updateProgress(0, '初始化分块上传...');
-      const startRes = await authFetch('/api/upload/chunk/start', {
+      updateProgress(0, '获取上传凭证...');
+      // Step 1: Get client token from our server
+      const tokenRes = await authFetch('/api/upload/token', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ filename: file.name, contentType: file.type, totalSize: file.size })
+        body: JSON.stringify({ filename: file.name, contentType: file.type })
       });
-      const startData = await startRes.json();
-      if (!startData.success) throw new Error(startData.error || '初始化上传失败');
-      const uploadId = startData.uploadId;
+      const tokenData = await tokenRes.json();
+      if (!tokenData.success) throw new Error(tokenData.error || '获取上传凭证失败');
 
-      // Step 2: Send chunks sequentially
-      let uploaded = 0;
-      for (let i = 0; i < totalChunks; i++) {
-        const start = i * CHUNK_SIZE;
-        const end = Math.min(start + CHUNK_SIZE, file.size);
-        const chunk = file.slice(start, end);
-        const pct = Math.round((uploaded / file.size) * 100);
-        updateProgress(pct, `上传中... ${formatSize(uploaded)} / ${formatSize(file.size)} (分块 ${i+1}/${totalChunks})`);
-
-        const chunkRes = await authFetch(`/api/upload/chunk/${uploadId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/octet-stream' },
-          body: chunk
+      // Step 2: Upload directly to Vercel Blob using XHR (supports progress)
+      updateProgress(0, `直传上传中... (${formatSize(file.size)})`);
+      return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.upload.addEventListener('progress', (e) => {
+          if (e.lengthComputable) {
+            const pct = (e.loaded / e.total) * 100;
+            updateProgress(pct, `上传中... ${formatSize(e.loaded)} / ${formatSize(e.total)}`);
+          }
         });
-        const chunkData = await chunkRes.json();
-        if (!chunkData.success) throw new Error(chunkData.error || `分块 ${i+1} 上传失败`);
-        uploaded += (end - start);
-      }
+        xhr.addEventListener('load', () => {
+          if (xhr.status >= 200 && xhr.status < 300) {
+            try {
+              const resp = JSON.parse(xhr.responseText);
+              resolve({ success: true, url: resp.url });
+            } catch (e) {
+              resolve({ success: true, url: xhr.getResponseHeader('x-blob-url') || '' });
+            }
+          } else {
+            reject(new Error(`上传失败 (${xhr.status}): ${xhr.responseText}`));
+          }
+        });
+        xhr.addEventListener('error', () => reject(new Error('网络错误')));
+        xhr.addEventListener('timeout', () => reject(new Error('上传超时')));
+        xhr.timeout = 600000; // 10 minutes for large files
 
-      // Step 3: Complete upload - server assembles and uploads to Vercel Blob
-      updateProgress(95, '合并文件中...');
-      const completeRes = await authFetch(`/api/upload/chunk/complete/${uploadId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        // Vercel Blob client upload: PUT to blob.vercel-storage.com
+        xhr.open('PUT', `https://blob.vercel-storage.com/${tokenData.pathname}`);
+        xhr.setRequestHeader('authorization', `Bearer ${tokenData.clientToken}`);
+        xhr.setRequestHeader('x-api-version', '7');
+        xhr.setRequestHeader('x-content-type', file.type || 'application/octet-stream');
+        xhr.setRequestHeader('x-add-random-suffix', '1');
+        xhr.send(file);
       });
-      const completeData = await completeRes.json();
-      if (!completeData.success) throw new Error(completeData.error || '合并上传失败');
-      updateProgress(100, '上传完成!');
-      return { success: true, url: completeData.url };
     }
 
     // Compress video using Canvas + MediaRecorder
