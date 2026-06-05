@@ -121,7 +121,7 @@
     .detail-content p br:only-child { display: none; }
     .detail-content p + p:empty { display: none; }
     .detail-content img { width: 100%; border-radius: 0; margin: 0; padding: 0; display: block; }
-    .detail-content video { width: 100%; border-radius: 0; margin: 0; padding: 0; display: block; background: #000; }
+    .detail-content video { width: 100% !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; display: block !important; background: #000; }
     .detail-content iframe { width: 100%; margin: 0; padding: 0; display: block; }
     .detail-content blockquote {
       border-left: 3px solid var(--black);
@@ -380,16 +380,15 @@
           document.getElementById('detailContent').innerHTML = work.detail;
           // Make all videos autoplay (muted + loop + controls)
           document.querySelectorAll('.detail-content video').forEach(video => {
+            // Clear any inline styles from editor that cause gaps
+            video.removeAttribute('style');
             video.controls = true;
             video.playsInline = true;
             video.preload = 'auto';
             video.autoplay = true;
             video.muted = true;
             video.loop = true;
-            video.style.width = '100%';
-            video.style.borderRadius = '0';
-            video.style.display = 'block';
-            video.style.backgroundColor = '#000';
+            video.style.cssText = 'width:100%;display:block;margin:0;padding:0;border-radius:0;background:#000;';
             // Force play after canplay
             const tryPlay = () => {
               video.muted = true;
@@ -399,6 +398,8 @@
               tryPlay();
             } else {
               video.addEventListener('canplay', tryPlay, { once: true });
+              // Fallback: also try on loadeddata
+              video.addEventListener('loadeddata', tryPlay, { once: true });
             }
           });
           // Remove all gaps between media elements
