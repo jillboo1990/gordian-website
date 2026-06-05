@@ -1060,11 +1060,19 @@ padding: 0 180px;
           try {
             // Compress video to fit server upload limit (3.5MB)
             if (file.size > 3.5 * 1024 * 1024) {
-              const result = await compressVideo(file);
-              file = result.file;
-              if (result.compressed) {
-                updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
-                await new Promise(r => setTimeout(r, 800));
+              try {
+                updateProgress(0, '开始压缩视频...');
+                const result = await Promise.race([
+                  compressVideo(file),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('压缩超时')), 120000))
+                ]);
+                file = result.file;
+                if (result.compressed) {
+                  updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+                  await new Promise(r => setTimeout(r, 800));
+                }
+              } catch (compErr) {
+                alert('视频压缩失败: ' + compErr.message + '，将尝试直接上传原始文件');
               }
             }
             updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
