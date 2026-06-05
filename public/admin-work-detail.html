@@ -1243,7 +1243,7 @@ padding: 0 180px;
       openCollapseModalForNew();
     }
 
-    // Insert video - direct DOM manipulation
+    // Insert video into Quill editor
     function insertVideo() {
       const choice = confirm('点击"确定"上传本地视频，点击"取消"输入视频链接');
       if (choice) {
@@ -1257,26 +1257,35 @@ padding: 0 180px;
           try {
             // Compress video to fit server upload limit (3.5MB)
             if (file.size > 3.5 * 1024 * 1024) {
-              const result = await compressVideo(file);
-              file = result.file;
-              if (result.compressed) {
-                updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
-                await new Promise(r => setTimeout(r, 800));
+              try {
+                updateProgress(0, '开始压缩视频...');
+                const result = await Promise.race([
+                  compressVideo(file),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('压缩超时')), 120000))
+                ]);
+                file = result.file;
+                if (result.compressed) {
+                  updateProgress(0, `已压缩: ${formatSize(result.originalSize)} → ${formatSize(result.compressedSize)}，开始上传...`);
+                  await new Promise(r => setTimeout(r, 800));
+                }
+              } catch (compErr) {
+                alert('视频压缩失败: ' + compErr.message + '，将尝试直接上传');
               }
             }
             updateProgress(0, `准备上传视频 (${formatSize(file.size)})...`);
             const data = await uploadWithProgress(file);
-            if (data.success) {
+            if (data.success && data.url) {
               updateProgress(100, '上传完成！');
               await new Promise(r => setTimeout(r, 500));
+              hideProgress();
               insertVideoElement(data.url, file.type);
             } else {
+              hideProgress();
               alert(data.error || '上传失败');
             }
           } catch (err) {
-            alert('上传失败：' + err.message);
-          } finally {
             hideProgress();
+            alert('上传失败：' + err.message);
           }
         };
         input.click();
