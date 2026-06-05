@@ -119,8 +119,9 @@
     .detail-content p:has(iframe) { margin: 0; padding: 0; line-height: 0; font-size: 0; }
     .detail-content p:empty { margin: 0; padding: 0; line-height: 0; font-size: 0; display: none; }
     .detail-content p br:only-child { display: none; }
+    .detail-content p + p:empty { display: none; }
     .detail-content img { width: 100%; border-radius: 0; margin: 0; padding: 0; display: block; }
-    .detail-content video { width: 100%; border-radius: 0; margin: 0; padding: 0; display: block; }
+    .detail-content video { width: 100%; border-radius: 0; margin: 0; padding: 0; display: block; background: #000; }
     .detail-content iframe { width: 100%; margin: 0; padding: 0; display: block; }
     .detail-content blockquote {
       border-left: 3px solid var(--black);
@@ -400,7 +401,7 @@
               video.addEventListener('canplay', tryPlay, { once: true });
             }
           });
-          // Remove margins from p tags that contain only images/videos
+          // Remove all gaps between media elements
           document.querySelectorAll('.detail-content p').forEach(p => {
             if (p.querySelector('img') || p.querySelector('video') || p.querySelector('iframe')) {
               p.style.margin = '0';
@@ -408,9 +409,18 @@
               p.style.lineHeight = '0';
               p.style.fontSize = '0';
             }
-            // Hide empty p or p with only br
-            if (!p.textContent.trim() && !p.querySelector('img') && !p.querySelector('video')) {
+            // Hide empty p or p with only br/whitespace
+            const text = p.textContent.trim();
+            const hasMedia = p.querySelector('img') || p.querySelector('video') || p.querySelector('iframe');
+            if (!text && !hasMedia) {
               p.style.display = 'none';
+            }
+          });
+          // Also hide any stray br elements between media
+          document.querySelectorAll('.detail-content br').forEach(br => {
+            const parent = br.parentElement;
+            if (parent && parent.tagName === 'P' && !parent.textContent.trim() && !parent.querySelector('img') && !parent.querySelector('video')) {
+              parent.style.display = 'none';
             }
           });
           initCollapsible();
