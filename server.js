@@ -490,8 +490,8 @@ app.put('/api/admin/works/:id', authMiddleware, async (req, res) => {
   const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   data.works[idx] = { ...data.works[idx], ...req.body };
-  await writeData(data);
   res.json({ success: true, data: data.works[idx] });
+  writeData(data).catch(err => console.error('Background write error:', err));
 });
 
 app.put('/api/admin/works/:id/toggle-hidden', authMiddleware, async (req, res) => {
@@ -499,8 +499,8 @@ app.put('/api/admin/works/:id/toggle-hidden', authMiddleware, async (req, res) =
   const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   data.works[idx].hidden = !data.works[idx].hidden;
-  await writeData(data);
   res.json({ success: true, hidden: data.works[idx].hidden });
+  writeData(data).catch(err => console.error('Background write error:', err));
 });
 
 app.delete('/api/admin/works/:id', authMiddleware, async (req, res) => {
@@ -524,8 +524,9 @@ app.put('/api/admin/works/:id/detail', authMiddleware, async (req, res) => {
   const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   data.works[idx].detail = req.body.detail || '';
-  await writeData(data);
-  res.json({ success: true, data: data.works[idx] });
+  // Respond immediately, write in background
+  res.json({ success: true });
+  writeData(data).catch(err => console.error('Background write error:', err));
 });
 
 // ===== Services =====
