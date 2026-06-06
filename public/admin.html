@@ -1994,13 +1994,22 @@ bottomLeftSubtitle: document.getElementById('hero-bottomLeftSubtitle').value,
 bottomLeftDesc: document.getElementById('hero-bottomLeftDesc').value,
 bottomRightDesc: document.getElementById('hero-bottomRightDesc').value
 };
-await authFetch('/api/admin/hero', {
-method: 'PUT',
-headers: { 'Content-Type': 'application/json' },
-body: JSON.stringify(body)
-});
-showToast('保存成功！');
-fetchData();
+try {
+  const resp = await authFetch('/api/admin/hero', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  const result = await resp.json();
+  if (result.success) {
+    showToast('保存成功！');
+    fetchData();
+  } else {
+    showToast('保存失败：' + (result.error || '未知错误'), 'error');
+  }
+} catch (err) {
+  showToast('保存失败：' + err.message, 'error');
+}
 });
 
     function renderProcess() {}

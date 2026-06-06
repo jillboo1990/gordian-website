@@ -609,9 +609,10 @@ padding: 0 180px;
     }
 
     // Compress image if over 4MB
-    async function compressImage(file, maxSizeMB = 4) {
-      if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+    async function compressImage(file, maxSizeMB = 1.5) {
       if (!file.type.startsWith('image/')) return { file, compressed: false };
+      // Skip compression for small files (under 200KB) or GIFs
+      if (file.size <= 200 * 1024 || file.type === 'image/gif') return { file, compressed: false };
       const originalSize = file.size;
       updateProgress(0, `压缩中... 原始大小 ${formatSize(originalSize)}`);
       const compressed = await new Promise((resolve) => {
@@ -619,7 +620,8 @@ padding: 0 180px;
         img.onload = () => {
           const canvas = document.createElement('canvas');
           let w = img.width, h = img.height;
-          const maxDim = 3000;
+          // 保持高分辨率，最大边不超过 2400px
+          const maxDim = 2400;
           if (w > maxDim || h > maxDim) {
             const ratio = Math.min(maxDim / w, maxDim / h);
             w = Math.round(w * ratio);
@@ -629,12 +631,17 @@ padding: 0 180px;
           canvas.height = h;
           const ctx = canvas.getContext('2d');
           ctx.drawImage(img, 0, 0, w, h);
+          // 高质量压缩，保证清晰度
           canvas.toBlob((blob) => {
-            resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-          }, 'image/jpeg', 0.85);
+            resolve(new File([blob], file.name.replace(/\.\w+$/, '.jpg'), { type: 'image/jpeg' }));
+          }, 'image/jpeg', 0.92);
         };
         img.src = URL.createObjectURL(file);
       });
+      // 如果压缩后反而更大，就用原图
+      if (compressed.size >= originalSize) {
+        return { file, compressed: false };
+      }
       updateProgress(0, `已压缩: ${formatSize(originalSize)} → ${formatSize(compressed.size)}`);
       return { file: compressed, compressed: true, originalSize, compressedSize: compressed.size };
     }

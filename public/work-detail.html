@@ -158,9 +158,24 @@
     .collapse-section {
       border: 1px solid var(--gray-lighter);
       border-radius: 8px;
-      margin: 20px 0;
+      margin: 0;
       overflow: hidden;
     }
+    .collapse-section + .collapse-section {
+      margin-top: -1px;
+      border-top-left-radius: 0;
+      border-top-right-radius: 0;
+    }
+    .collapse-section:has(+ .collapse-section) {
+      border-bottom-left-radius: 0;
+      border-bottom-right-radius: 0;
+    }
+    /* Hide any empty elements between collapse sections */
+    .collapse-section + p:empty + .collapse-section,
+    .collapse-section + br + .collapse-section { margin-top: -1px; }
+    .detail-content p:empty + .collapse-section { margin-top: 0; }
+    .detail-content .collapse-section ~ p:empty { display: none; margin: 0; padding: 0; }
+    .detail-content p + .collapse-section { margin-top: 0; }
 
     .collapse-header {
       padding: 14px 18px;
@@ -433,6 +448,31 @@
             const parent = br.parentElement;
             if (parent && parent.tagName === 'P' && !parent.textContent.trim() && !parent.querySelector('img') && !parent.querySelector('video')) {
               parent.style.display = 'none';
+            }
+          });
+          // Remove empty elements between collapse sections
+          const collapseSections = document.querySelectorAll('.detail-content .collapse-section');
+          collapseSections.forEach(section => {
+            let prev = section.previousSibling;
+            while (prev) {
+              const keep = prev;
+              prev = prev.previousSibling;
+              if (keep.nodeType === 3 && !keep.textContent.trim()) {
+                keep.remove();
+              } else if (keep.nodeType === 1) {
+                if (keep.classList && keep.classList.contains('collapse-section')) break;
+                const text = keep.textContent.trim();
+                const hasMedia = keep.querySelector && (keep.querySelector('img') || keep.querySelector('video'));
+                if (!text && !hasMedia) {
+                  keep.style.display = 'none';
+                  keep.style.margin = '0';
+                  keep.style.padding = '0';
+                } else {
+                  break;
+                }
+              } else {
+                break;
+              }
             }
           });
           initCollapsible();

@@ -54,10 +54,10 @@ async function readData() {
   if (IS_VERCEL && BLOB_TOKEN) {
     const data = await blobReadJSON('data.json');
     if (data) return data;
-    // Fallback: read from bundled file and init blob
-    const localData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-    await blobWriteJSON('data.json', localData);
-    return localData;
+    // If blob is empty, read local but DO NOT overwrite blob
+    // This prevents accidental data loss from stale local files
+    console.warn('Blob data.json not found, returning local fallback (read-only)');
+    return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
   }
   return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 }
@@ -74,10 +74,9 @@ async function readAuth() {
   if (IS_VERCEL && BLOB_TOKEN) {
     const auth = await blobReadJSON('auth.json');
     if (auth) return auth;
-    // Init from local
-    const localAuth = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
-    await blobWriteJSON('auth.json', localAuth);
-    return localAuth;
+    // Fallback read-only, do not overwrite blob
+    console.warn('Blob auth.json not found, returning local fallback');
+    return JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
   }
   return JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
 }
@@ -490,8 +489,8 @@ app.put('/api/admin/works/:id', authMiddleware, async (req, res) => {
   const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   data.works[idx] = { ...data.works[idx], ...req.body };
+  await writeData(data);
   res.json({ success: true, data: data.works[idx] });
-  writeData(data).catch(err => console.error('Background write error:', err));
 });
 
 app.put('/api/admin/works/:id/toggle-hidden', authMiddleware, async (req, res) => {
@@ -499,8 +498,8 @@ app.put('/api/admin/works/:id/toggle-hidden', authMiddleware, async (req, res) =
   const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   data.works[idx].hidden = !data.works[idx].hidden;
+  await writeData(data);
   res.json({ success: true, hidden: data.works[idx].hidden });
-  writeData(data).catch(err => console.error('Background write error:', err));
 });
 
 app.delete('/api/admin/works/:id', authMiddleware, async (req, res) => {
@@ -524,9 +523,8 @@ app.put('/api/admin/works/:id/detail', authMiddleware, async (req, res) => {
   const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
   if (idx === -1) return res.status(404).json({ error: 'Not found' });
   data.works[idx].detail = req.body.detail || '';
-  // Respond immediately, write in background
+  await writeData(data);
   res.json({ success: true });
-  writeData(data).catch(err => console.error('Background write error:', err));
 });
 
 // ===== Services =====
