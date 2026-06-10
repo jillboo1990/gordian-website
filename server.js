@@ -20,19 +20,25 @@ const IS_VERCEL = !!process.env.VERCEL;
 const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
 // ===== Blob Storage Helpers =====
-async function blobReadJSON(filename, retries = 2) {
+async function blobReadJSON(filename, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
       const { blobs } = await list({ prefix: filename, token: BLOB_TOKEN });
       if (blobs.length === 0) return null; // Truly empty, no retry needed
-      const exact = blobs.find(b => b.pathname === filename) || blobs[0];
-      const res = await fetch(exact.url + '?t=' + Date.now());
+      // Exact match only - prevent prefix collision (e.g. data.json.bak)
+      const exact = blobs.find(b => b.pathname === filename);
+      if (!exact) return null;
+      const res = await fetch(exact.url + '?t=' + Date.now(), {
+        headers: { 'Cache-Control': 'no-cache' }
+      });
       if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-      return await res.json();
+      const text = await res.text();
+      if (!text || text.trim().length === 0) throw new Error('Empty response');
+      return JSON.parse(text);
     } catch (err) {
       console.error(`Blob read error (${filename}), attempt ${attempt}/${retries}:`, err.message);
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 300)); // Short backoff
+        await new Promise(r => setTimeout(r, 500 * attempt)); // Progressive backoff
       }
     }
   }
@@ -42,8 +48,18 @@ async function blobReadJSON(filename, retries = 2) {
 
 async function blobWriteJSON(filename, data) {
   try {
-    // Overwrite directly - allowOverwrite required since @vercel/blob 0.27+
-    await put(filename, JSON.stringify(data, null, 2), {
+    const jsonStr = JSON.stringify(data, null, 2);
+    // Sanity check: refuse to write empty or obviously corrupted data
+    if (!jsonStr || jsonStr.length < 10) {
+      throw new Error(`Refusing to write near-empty data to ${filename} (${jsonStr.length} bytes)`);
+    }
+    // For data.json: verify critical fields exist before overwriting
+    if (filename === 'data.json') {
+      if (!data.siteInfo || !data.works || !Array.isArray(data.works)) {
+        throw new Error('Data integrity check failed: missing siteInfo or works array');
+      }
+    }
+    await put(filename, jsonStr, {
       access: 'public',
       token: BLOB_TOKEN,
       contentType: 'application/json',
@@ -103,14 +119,31 @@ async function autoSnapshot(currentData) {
 async function readData() {
   if (IS_VERCEL && BLOB_TOKEN) {
     // On Vercel: ONLY read from Blob. NEVER fall back to local file.
-    // This prevents stale local data.json from ever overwriting real Blob data.
     const data = await blobReadJSON('data.json');
     if (data) return data;
-    // Check if Blob is truly empty (first deploy) vs read failure
-    // If truly empty, initialize from local file ONCE
+    // Check if Blob data.json truly doesn't exist vs read failure
     const { blobs } = await list({ prefix: 'data.json', token: BLOB_TOKEN });
-    if (blobs.length === 0) {
-      // First deploy: initialize Blob from local file
+    const exactMatch = blobs.find(b => b.pathname === 'data.json');
+    if (!exactMatch) {
+      // data.json missing from Blob! Try to recover from latest snapshot first
+      console.warn('data.json missing from Blob! Attempting snapshot recovery...');
+      const { blobs: snaps } = await list({ prefix: SNAPSHOT_PREFIX, token: BLOB_TOKEN, limit: 100 });
+      if (snaps.length > 0) {
+        // Use the most recent snapshot
+        const latest = snaps.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
+        try {
+          const snapRes = await fetch(latest.url + '?t=' + Date.now());
+          const snapData = await snapRes.json();
+          if (snapData && snapData.siteInfo && snapData.works) {
+            console.warn('Recovered from snapshot: ' + latest.pathname);
+            await blobWriteJSON('data.json', snapData);
+            return snapData;
+          }
+        } catch (e) {
+          console.error('Snapshot recovery failed:', e.message);
+        }
+      }
+      // No snapshots available - truly first deploy, use local file
       console.warn('First deploy detected: initializing Blob data.json from local file');
       const localData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
       await blobWriteJSON('data.json', localData);
@@ -252,30 +285,16 @@ const upload = multer({
 });
 
 // ===== Initialize Data =====
+// Only creates default data.json for LOCAL development when file doesn't exist.
+// On Vercel, data ALWAYS comes from Blob storage - local file is NEVER used.
 function initData() {
-  if (!IS_VERCEL && !fs.existsSync(DATA_FILE)) {
+  if (IS_VERCEL) return; // NEVER touch local files on Vercel
+  if (!fs.existsSync(DATA_FILE)) {
     const defaultData = {
-      siteInfo: {
-        siteName: 'JILLBOO - 个人作品集',
-        brand: 'GORDIAN',
-        email: 'Hello@gordian.com',
-        location: 'Italy, Roma',
-        available: ['09 September', '12 October'],
-        expertise: ['Design', 'Web Development'],
-        social: { instagram: 'https://www.instagram.com/', linkedin: 'https://www.linkedin.com/' },
-        copyright: '©2024 GORDIAN',
-        footer: 'Made by Satto'
-      },
-      hero: {
-        image: '',
-        topLeftTitle: '',
-        topRightTitle: '',
-        bottomLeftSubtitle: '',
-        bottomLeftDesc: '',
-        bottomRightDesc: ''
-      },
-      about: { description: '', image1: '', image2: '', works: 8, years: 3, title: 'ABOUT', number: 'S01', statLabel1: 'Works', statLabel2: 'Years' },
-      experienceSection: { title: '工作经历', number: 'S02' },
+      siteInfo: { siteName: '', brand: '', email: '', location: '', expertise: [], social: {}, copyright: '', footer: '' },
+      hero: { image: '', topLeftTitle: '', topRightTitle: '', bottomLeftSubtitle: '', bottomLeftDesc: '', bottomRightDesc: '' },
+      about: { description: '', image1: '', image2: '', works: 0, years: 0, title: '', number: '' },
+      experienceSection: { title: '', number: '' },
       experiences: [],
       works: [],
       services: { description: '', specializations: [], headings: [] },
