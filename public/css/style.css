@@ -1031,6 +1031,42 @@ color: var(--gray-mid);
   transform: translateY(0);
 }
 
+.giant-text {
+  cursor: none;
+}
+
+/* Magnifier effect */
+.giant-magnifier {
+  position: fixed;
+  width: 220px;
+  height: 220px;
+  border-radius: 50%;
+  border: none;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  box-shadow: none;
+  background: var(--black, #0a0a0a);
+  -webkit-mask-image: radial-gradient(circle, black 40%, transparent 72%);
+  mask-image: radial-gradient(circle, black 40%, transparent 72%);
+}
+
+.giant-magnifier.active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.giant-magnifier-content {
+  position: absolute;
+  top: 0;
+  left: 0;
+  color: var(--white, #ffffff);
+  will-change: transform;
+}
+
 .contact-info {
   display: grid;
   grid-template-columns: repeat(4, 1fr);

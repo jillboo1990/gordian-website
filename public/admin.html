@@ -170,6 +170,10 @@
       font-weight: 600;
     }
 
+    .asset-card:hover {
+      border-color: var(--accent) !important;
+    }
+
     /* Forms */
     .form-group {
       margin-bottom: 16px;
@@ -544,6 +548,12 @@
         <li class="nav-item" data-section="resume">
           <span class="nav-icon">&#128196;</span> 简历管理
         </li>
+        <li class="nav-item" data-section="assets">
+          <span class="nav-icon">&#128451;</span> 资源管理
+        </li>
+        <li class="nav-item" data-section="backups">
+          <span class="nav-icon">&#128190;</span> 备份恢复
+        </li>
         <li class="nav-item" data-section="disguise">
           <span class="nav-icon">&#128123;</span> 伪装模式
         </li>
@@ -897,6 +907,89 @@
   </div>
 </div>
 
+<!-- 资源管理 -->
+<div class="admin-section" id="section-assets">
+  <div class="page-header">
+    <h2>资源管理</h2>
+    <p>管理已上传的所有图片和视频文件</p>
+  </div>
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>已上传资源 (<span id="assetsCount">0</span>)</h3>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <select id="assetsFilter" onchange="filterAssets()" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text);padding:6px 10px;border-radius:var(--radius);font-size:12px;">
+          <option value="all">全部</option>
+          <option value="image">图片</option>
+          <option value="video">视频</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="loadAssets()">刷新</button>
+        <label class="btn btn-primary btn-sm" style="cursor:pointer;">
+          上传文件
+          <input type="file" id="assetUploadInput" accept="image/*,video/*" multiple style="display:none;" onchange="uploadAssetFiles(this)">
+        </label>
+      </div>
+    </div>
+    <div id="assetsLoading" style="padding:40px;text-align:center;color:var(--text-secondary);">加载中...</div>
+    <div id="assetsGrid" style="display:none;padding:16px;display:grid;grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));gap:12px;"></div>
+    <div id="assetsEmpty" style="display:none;padding:40px;text-align:center;color:var(--text-secondary);">暂无上传资源</div>
+  </div>
+</div>
+
+<!-- 资源预览弹窗 -->
+<div class="modal-overlay" id="assetPreviewModal">
+  <div class="modal" style="max-width:800px;">
+    <h3>资源预览</h3>
+    <div id="assetPreviewContent" style="margin:16px 0;text-align:center;max-height:60vh;overflow:auto;"></div>
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px;">
+      <input type="text" id="assetPreviewUrl" readonly style="flex:1;font-size:12px;">
+      <button class="btn btn-secondary btn-sm" onclick="copyAssetUrl()">复制链接</button>
+    </div>
+    <div id="assetPreviewInfo" style="font-size:12px;color:var(--text-secondary);margin-bottom:16px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-danger btn-sm" onclick="deleteAssetFromPreview()">删除</button>
+      <button class="btn btn-secondary" onclick="closeModal('assetPreviewModal')">关闭</button>
+    </div>
+  </div>
+</div>
+
+<!-- 备份恢复 -->
+<div class="admin-section" id="section-backups">
+  <div class="page-header">
+    <h2>备份恢复</h2>
+    <p>备份网站数据，遇到问题时可快速恢复到之前的状态</p>
+  </div>
+  <div class="card">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>创建备份</h3>
+    </div>
+    <div style="display:flex;gap:12px;align-items:center;">
+      <input type="text" id="backupLabel" placeholder="备份备注（可选，如：调整首页前）" style="flex:1;">
+      <button class="btn btn-primary" onclick="createBackup()">立即备份</button>
+    </div>
+    <p style="margin-top:12px;font-size:12px;color:var(--text-secondary);">备份包含所有网站数据（站点信息、作品列表、经历等），不含已上传的图片/视频文件。</p>
+  </div>
+  <div class="card" style="margin-top:16px;">
+    <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
+      <h3>备份历史 (<span id="backupsCount">0</span>)</h3>
+      <button class="btn btn-secondary btn-sm" onclick="loadBackups()">刷新</button>
+    </div>
+    <div id="backupsLoading" style="padding:20px;text-align:center;color:var(--text-secondary);">加载中...</div>
+    <div id="backupsEmpty" style="display:none;padding:20px;text-align:center;color:var(--text-secondary);">暂无备份记录</div>
+    <table id="backupsTable" style="display:none;width:100%;border-collapse:collapse;">
+      <thead>
+        <tr style="border-bottom:1px solid var(--border);">
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">备份时间</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">备注</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">作品数</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">大小</th>
+          <th style="text-align:right;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">操作</th>
+        </tr>
+      </thead>
+      <tbody id="backupsTableBody"></tbody>
+    </table>
+  </div>
+</div>
+
 <!-- 伪装模式 -->
 <div class="admin-section" id="section-disguise">
         <div class="page-header">
@@ -1179,13 +1272,13 @@ throw err;
 });
 }
 
-    // 获取数据
-    async function fetchData() {
-      const res = await authFetch('/api/admin/data');
-      appData = await res.json();
-      renderAll();
-      loadAccountInfo();
-    }
+// 获取数据
+async function fetchData() {
+const res = await authFetch('/api/admin/data?t=' + Date.now());
+appData = await res.json();
+renderAll();
+loadAccountInfo();
+}
 
     function renderAll() {
       renderDashboard();
@@ -1849,22 +1942,33 @@ async function uploadWorkImage(fileInput) {
         category: document.getElementById('work-category').value,
         image: document.getElementById('work-image').value
       };
-      if (id) {
-        await authFetch(`/api/admin/works/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
-      } else {
-        await authFetch('/api/admin/works', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(body)
-        });
+      try {
+        let result;
+        if (id) {
+          const res = await authFetch(`/api/admin/works/${id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          result = await res.json();
+        } else {
+          const res = await authFetch('/api/admin/works', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+          });
+          result = await res.json();
+        }
+        if (!result.success) {
+          showToast('保存失败：' + (result.error || '未知错误'));
+          return;
+        }
+        closeModal('workModal');
+        showToast('保存成功！');
+        await fetchData();
+      } catch (err) {
+        showToast('保存失败：' + err.message);
       }
-      closeModal('workModal');
-      showToast('保存成功！');
-      fetchData();
     });
 
     // ===== Services Form =====
@@ -2056,6 +2160,241 @@ try {
       } catch (err) {
         showToast('保存失败：' + err.message);
       }
+    });
+
+    // ===== Asset Manager =====
+    let allAssets = [];
+    let currentPreviewAsset = null;
+
+    async function loadAssets() {
+      document.getElementById('assetsLoading').style.display = 'block';
+      document.getElementById('assetsGrid').style.display = 'none';
+      document.getElementById('assetsEmpty').style.display = 'none';
+      try {
+        const res = await authFetch('/api/admin/assets?t=' + Date.now());
+        const data = await res.json();
+        allAssets = data.assets || [];
+        document.getElementById('assetsCount').textContent = allAssets.length;
+        filterAssets();
+      } catch (err) {
+        showToast('加载资源失败：' + err.message);
+      }
+      document.getElementById('assetsLoading').style.display = 'none';
+    }
+
+    function filterAssets() {
+      const filter = document.getElementById('assetsFilter').value;
+      const filtered = filter === 'all' ? allAssets : allAssets.filter(a => a.type === filter);
+      renderAssets(filtered);
+    }
+
+    function renderAssets(assets) {
+      const grid = document.getElementById('assetsGrid');
+      const empty = document.getElementById('assetsEmpty');
+      if (assets.length === 0) {
+        grid.style.display = 'none';
+        empty.style.display = 'block';
+        return;
+      }
+      empty.style.display = 'none';
+      grid.style.display = 'grid';
+      grid.innerHTML = assets.map(asset => {
+        const name = asset.pathname.split('/').pop();
+        const sizeStr = formatAssetSize(asset.size);
+        const dateStr = new Date(asset.uploadedAt).toLocaleDateString('zh-CN');
+        const thumb = asset.type === 'video'
+          ? `<div style="width:100%;height:120px;background:#1a1a1a;display:flex;align-items:center;justify-content:center;border-radius:4px;"><span style="font-size:32px;">&#9654;</span></div>`
+          : `<img src="${asset.url}" style="width:100%;height:120px;object-fit:cover;border-radius:4px;" loading="lazy">`;
+        return `
+          <div class="asset-card" onclick="previewAsset('${encodeURIComponent(JSON.stringify(asset))}')" style="background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;cursor:pointer;transition:border-color 0.2s;">
+            <div style="padding:6px;">${thumb}</div>
+            <div style="padding:6px 10px 10px;">
+              <div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;" title="${name}">${name}</div>
+              <div style="font-size:10px;color:var(--text-secondary);margin-top:4px;">${sizeStr} · ${dateStr}</div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function formatAssetSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    function previewAsset(encodedAsset) {
+      const asset = JSON.parse(decodeURIComponent(encodedAsset));
+      currentPreviewAsset = asset;
+      const content = document.getElementById('assetPreviewContent');
+      if (asset.type === 'video') {
+        content.innerHTML = `<video src="${asset.url}" controls style="max-width:100%;max-height:50vh;border-radius:6px;"></video>`;
+      } else {
+        content.innerHTML = `<img src="${asset.url}" style="max-width:100%;max-height:50vh;border-radius:6px;">`;
+      }
+      document.getElementById('assetPreviewUrl').value = asset.url;
+      const sizeStr = formatAssetSize(asset.size);
+      const dateStr = new Date(asset.uploadedAt).toLocaleString('zh-CN');
+      document.getElementById('assetPreviewInfo').textContent = `大小: ${sizeStr} | 上传时间: ${dateStr}`;
+      document.getElementById('assetPreviewModal').classList.add('show');
+    }
+
+    function copyAssetUrl() {
+      const input = document.getElementById('assetPreviewUrl');
+      navigator.clipboard.writeText(input.value).then(() => {
+        showToast('链接已复制！');
+      }).catch(() => {
+        input.select();
+        document.execCommand('copy');
+        showToast('链接已复制！');
+      });
+    }
+
+    async function deleteAssetFromPreview() {
+      if (!currentPreviewAsset) return;
+      if (!confirm('确定要删除这个资源吗？此操作不可恢复。')) return;
+      try {
+        const res = await authFetch('/api/admin/assets', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: currentPreviewAsset.url })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('删除成功！');
+          closeModal('assetPreviewModal');
+          loadAssets();
+        } else {
+          showToast('删除失败：' + (data.error || '未知错误'));
+        }
+      } catch (err) {
+        showToast('删除失败：' + err.message);
+      }
+    }
+
+    async function uploadAssetFiles(input) {
+      const files = input.files;
+      if (!files.length) return;
+      let successCount = 0;
+      for (let i = 0; i < files.length; i++) {
+        try {
+          const formData = new FormData();
+          formData.append('image', files[i]);
+          const res = await authFetch('/api/upload', {
+            method: 'POST',
+            body: formData
+          });
+          const data = await res.json();
+          if (data.success) successCount++;
+        } catch (err) {
+          console.error('Upload failed:', err);
+        }
+      }
+      showToast(`上传完成！成功 ${successCount}/${files.length} 个`);
+      input.value = '';
+      loadAssets();
+    }
+
+    // ===== Backup Manager =====
+    async function loadBackups() {
+      document.getElementById('backupsLoading').style.display = 'block';
+      document.getElementById('backupsTable').style.display = 'none';
+      document.getElementById('backupsEmpty').style.display = 'none';
+      try {
+        const res = await authFetch('/api/admin/backups?t=' + Date.now());
+        const data = await res.json();
+        const backups = data.backups || [];
+        document.getElementById('backupsCount').textContent = backups.length;
+        if (backups.length === 0) {
+          document.getElementById('backupsEmpty').style.display = 'block';
+        } else {
+          document.getElementById('backupsTable').style.display = 'table';
+          document.getElementById('backupsTableBody').innerHTML = backups.map(b => {
+            const dateStr = new Date(b.createdAt).toLocaleString('zh-CN');
+            const sizeStr = b.size < 1024 ? b.size + ' B' : b.size < 1024*1024 ? (b.size/1024).toFixed(1) + ' KB' : (b.size/(1024*1024)).toFixed(1) + ' MB';
+            return `<tr style="border-bottom:1px solid var(--border);">
+              <td style="padding:10px 12px;font-size:13px;">${dateStr}</td>
+              <td style="padding:10px 12px;font-size:13px;color:var(--text-secondary);">${b.label || '-'}</td>
+              <td style="padding:10px 12px;font-size:13px;">${b.worksCount}</td>
+              <td style="padding:10px 12px;font-size:13px;">${sizeStr}</td>
+              <td style="padding:10px 12px;text-align:right;">
+                <button class="btn btn-primary btn-sm" onclick="restoreBackup('${b.id}')">恢复</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteBackup('${b.id}')">删除</button>
+              </td>
+            </tr>`;
+          }).join('');
+        }
+      } catch (err) {
+        showToast('加载备份列表失败：' + err.message);
+      }
+      document.getElementById('backupsLoading').style.display = 'none';
+    }
+
+    async function createBackup() {
+      const label = document.getElementById('backupLabel').value.trim();
+      try {
+        const res = await authFetch('/api/admin/backups', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ label })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('备份创建成功！');
+          document.getElementById('backupLabel').value = '';
+          loadBackups();
+        } else {
+          showToast('备份失败：' + (data.error || '未知错误'));
+        }
+      } catch (err) {
+        showToast('备份失败：' + err.message);
+      }
+    }
+
+    async function restoreBackup(id) {
+      if (!confirm('确定要恢复到此备份吗？当前数据将被覆盖（系统会自动备份当前状态）。')) return;
+      try {
+        const res = await authFetch(`/api/admin/backups/${id}/restore`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast(data.message || '恢复成功！');
+          await fetchData();
+          loadBackups();
+        } else {
+          showToast('恢复失败：' + (data.error || '未知错误'));
+        }
+      } catch (err) {
+        showToast('恢复失败：' + err.message);
+      }
+    }
+
+    async function deleteBackup(id) {
+      if (!confirm('确定要删除这个备份吗？此操作不可恢复。')) return;
+      try {
+        const res = await authFetch(`/api/admin/backups/${id}`, {
+          method: 'DELETE'
+        });
+        const data = await res.json();
+        if (data.success) {
+          showToast('备份已删除');
+          loadBackups();
+        } else {
+          showToast('删除失败：' + (data.error || '未知错误'));
+        }
+      } catch (err) {
+        showToast('删除失败：' + err.message);
+      }
+    }
+
+    // Load data when switching to tabs
+    const tabNavItems = document.querySelectorAll('.nav-item');
+    tabNavItems.forEach(item => {
+      item.addEventListener('click', () => {
+        if (item.dataset.section === 'assets') loadAssets();
+        if (item.dataset.section === 'backups') loadBackups();
+      });
     });
 
     // Init

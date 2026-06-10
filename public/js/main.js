@@ -698,4 +698,70 @@ document.addEventListener('DOMContentLoaded', () => {
   initCopyEmail();
   initParallax();
   initActiveNav();
+  initGiantTextMagnifier();
 });
+
+// ===== Giant Text Magnifier Effect =====
+function initGiantTextMagnifier() {
+  const giantText = document.querySelector('.giant-text');
+  if (!giantText) return;
+
+  // Create magnifier element
+  const magnifier = document.createElement('div');
+  magnifier.className = 'giant-magnifier';
+  magnifier.innerHTML = '<div class="giant-magnifier-content"></div>';
+  document.body.appendChild(magnifier);
+
+  const magnifierContent = magnifier.querySelector('.giant-magnifier-content');
+  const SIZE = 220;
+  const SCALE = 1.8;
+  let isHovering = false;
+  let rafId = null;
+  let mouseX = 0, mouseY = 0;
+
+  function updateMagnifier() {
+    if (!isHovering) return;
+    const rect = giantText.getBoundingClientRect();
+
+    // Position magnifier centered on cursor
+    magnifier.style.left = (mouseX - SIZE / 2) + 'px';
+    magnifier.style.top = (mouseY - SIZE / 2) + 'px';
+
+    // Calculate offset for the cloned content to align with original
+    const offsetX = (mouseX - rect.left) * SCALE - SIZE / 2;
+    const offsetY = (mouseY - rect.top) * SCALE - SIZE / 2;
+
+    magnifierContent.style.transform = `translate(${-offsetX}px, ${-offsetY}px) scale(${SCALE})`;
+    magnifierContent.style.transformOrigin = '0 0';
+    magnifierContent.style.width = rect.width + 'px';
+    magnifierContent.style.height = rect.height + 'px';
+
+    rafId = requestAnimationFrame(updateMagnifier);
+  }
+
+  giantText.addEventListener('mouseenter', (e) => {
+    isHovering = true;
+    magnifierContent.textContent = giantText.textContent;
+    magnifierContent.style.fontSize = window.getComputedStyle(giantText).fontSize;
+    magnifierContent.style.fontWeight = window.getComputedStyle(giantText).fontWeight;
+    magnifierContent.style.letterSpacing = window.getComputedStyle(giantText).letterSpacing;
+    magnifierContent.style.lineHeight = window.getComputedStyle(giantText).lineHeight;
+    magnifierContent.style.fontFamily = window.getComputedStyle(giantText).fontFamily;
+    magnifierContent.style.whiteSpace = 'nowrap';
+    magnifier.classList.add('active');
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+    rafId = requestAnimationFrame(updateMagnifier);
+  });
+
+  giantText.addEventListener('mousemove', (e) => {
+    mouseX = e.clientX;
+    mouseY = e.clientY;
+  });
+
+  giantText.addEventListener('mouseleave', () => {
+    isHovering = false;
+    magnifier.classList.remove('active');
+    if (rafId) cancelAnimationFrame(rafId);
+  });
+}
