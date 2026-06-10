@@ -133,6 +133,15 @@
       "year": "2023",
       "category": "Digital",
       "image": "https://framerusercontent.com/images/LkOCkXBKT6NxMbQOrawssUX0yg.webp?width=4000&height=2800"
+    },
+    {
+      "id": 7,
+      "name": "新作品1",
+      "tags": "WORK",
+      "year": "2026",
+      "category": "Portfolio",
+      "image": "/uploads/1780417352385-468130.jpeg",
+      "detail": ""
     }
   ],
   "services": {
