@@ -374,6 +374,77 @@
   <script>
     const workId = window.location.pathname.split('/').pop();
 
+    function escapeHTML(value) {
+      return String(value ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function safeURL(value) {
+      const raw = String(value || '').trim();
+      if (!raw) return '';
+      try {
+        const url = new URL(raw, window.location.origin);
+        if (['http:', 'https:'].includes(url.protocol)) return url.href;
+        if (url.origin === window.location.origin && raw.startsWith('/')) return raw;
+      } catch (e) {
+        if (/^\/[^\s]*$/.test(raw)) return raw;
+      }
+      return '';
+    }
+
+    function sanitizeDetailHTML(html) {
+      const template = document.createElement('template');
+      template.innerHTML = String(html || '');
+
+      const allowedTags = new Set([
+        'P', 'BR', 'DIV', 'SPAN', 'SECTION', 'FIGURE', 'FIGCAPTION',
+        'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+        'STRONG', 'B', 'EM', 'I', 'U', 'S',
+        'UL', 'OL', 'LI', 'BLOCKQUOTE',
+        'IMG', 'VIDEO', 'SOURCE', 'A',
+        'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD'
+      ]);
+      const allowedAttrs = new Set([
+        'class', 'alt', 'title', 'src', 'href', 'target', 'rel',
+        'controls', 'preload', 'autoplay', 'muted', 'loop',
+        'colspan', 'rowspan'
+      ]);
+
+      template.content.querySelectorAll('*').forEach(node => {
+        if (!allowedTags.has(node.tagName)) {
+          node.remove();
+          return;
+        }
+
+        [...node.attributes].forEach(attr => {
+          const name = attr.name.toLowerCase();
+          if (name.startsWith('on') || !allowedAttrs.has(name)) {
+            node.removeAttribute(attr.name);
+            return;
+          }
+
+          if (['src', 'href'].includes(name)) {
+            const safe = safeURL(attr.value);
+            if (!safe) {
+              node.removeAttribute(attr.name);
+            } else {
+              node.setAttribute(attr.name, safe);
+            }
+          }
+        });
+
+        if (node.tagName === 'A') {
+          node.setAttribute('rel', 'noopener noreferrer');
+        }
+      });
+
+      return template.innerHTML;
+    }
+
     async function loadWork() {
       try {
         const res = await fetch(`/api/works/${workId}`);
@@ -382,7 +453,7 @@
 
         document.title = work.name + ' - 作品详情';
         document.getElementById('workTitle').textContent = work.name;
-        document.getElementById('heroImg').src = work.image;
+        document.getElementById('heroImg').src = safeURL(work.image);
         document.getElementById('heroImg').alt = work.name;
         document.getElementById('metaTags').textContent = work.tags;
         document.getElementById('metaYear').textContent = work.year;
@@ -392,7 +463,7 @@
         document.getElementById('skeletonLoading').style.display = 'none';
 
         if (work.detail && work.detail.trim()) {
-          document.getElementById('detailContent').innerHTML = work.detail;
+          document.getElementById('detailContent').innerHTML = sanitizeDetailHTML(work.detail);
           // Make all videos autoplay (muted + loop + controls)
           document.querySelectorAll('.detail-content video').forEach(video => {
             const src = video.getAttribute('src');
@@ -508,10 +579,10 @@
         if (si) {
           document.getElementById('footerEmail').textContent = si.email || '';
           document.getElementById('footerBrand').textContent = si.brand || '';
-          document.getElementById('footerSocial').innerHTML = `<span>${si.social?.wechat || ''}</span>`;
-          document.getElementById('footerPhone').innerHTML = `<span>${si.phone || ''}</span>`;
-          document.getElementById('footerLocation').innerHTML = `<span>${si.location || ''}</span>`;
-          document.getElementById('footerExpertise').innerHTML = `<span>${(si.expertise || []).join(' / ')}</span>`;
+          document.getElementById('footerSocial').innerHTML = `<span>${escapeHTML(si.social?.wechat)}</span>`;
+          document.getElementById('footerPhone').innerHTML = `<span>${escapeHTML(si.phone)}</span>`;
+          document.getElementById('footerLocation').innerHTML = `<span>${escapeHTML(si.location)}</span>`;
+          document.getElementById('footerExpertise').innerHTML = `<span>${escapeHTML((si.expertise || []).join(' / '))}</span>`;
         }
       } catch (err) {
         console.error('Failed to load footer:', err);

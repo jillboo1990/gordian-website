@@ -6,7 +6,7 @@ const crypto = require('crypto');
 const { put, list, del } = require('@vercel/blob');
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 
 // ===== Async Route Handler Wrapper =====
 // Catches errors in async route handlers, preventing unhandled rejections from
@@ -207,7 +207,34 @@ function initAuth() {
 }
 
 function hashPassword(pw) {
-  return crypto.createHash('sha256').update(pw).digest('hex');
+  const salt = crypto.randomBytes(16).toString('hex');
+  const iterations = 210000;
+  const digest = crypto.pbkdf2Sync(pw, salt, iterations, 32, 'sha256').toString('hex');
+  return `pbkdf2$${iterations}$${salt}$${digest}`;
+}
+
+function verifyPassword(pw, storedHash) {
+  if (!storedHash) return false;
+
+  if (storedHash.startsWith('pbkdf2$')) {
+    const parts = storedHash.split('$');
+    if (parts.length !== 4) return false;
+    const iterations = Number(parts[1]);
+    const salt = parts[2];
+    const expected = parts[3];
+    if (!Number.isInteger(iterations) || !salt || !/^[a-f0-9]{64}$/i.test(expected)) return false;
+    const actual = crypto.pbkdf2Sync(pw, salt, iterations, 32, 'sha256').toString('hex');
+    if (actual.length !== expected.length) return false;
+    return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(expected, 'hex'));
+  }
+
+  // Legacy SHA-256 hashes are accepted so existing accounts can log in once.
+  if (/^[a-f0-9]{64}$/i.test(storedHash)) {
+    const actual = crypto.createHash('sha256').update(pw).digest('hex');
+    return crypto.timingSafeEqual(Buffer.from(actual, 'hex'), Buffer.from(storedHash, 'hex'));
+  }
+
+  return false;
 }
 
 // Simple token-based session (persistent on Vercel via Blob)
@@ -241,7 +268,7 @@ async function saveSessions() {
 
 async function authMiddleware(req, res, next) {
   await loadSessions();
-  const token = req.headers['x-auth-token'] || req.query.token;
+  const token = req.headers['x-auth-token'];
   if (token && sessions.has(token)) {
     return next();
   }
@@ -249,6 +276,44 @@ async function authMiddleware(req, res, next) {
 }
 
 initAuth();
+
+const loginAttempts = new Map();
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 8;
+
+function getClientIp(req) {
+  return (req.headers['x-forwarded-for'] || req.ip || req.socket.remoteAddress || '')
+    .toString()
+    .split(',')[0]
+    .trim();
+}
+
+function isLoginLimited(req) {
+  const key = getClientIp(req) || 'unknown';
+  const now = Date.now();
+  const attempt = loginAttempts.get(key);
+  if (!attempt || now > attempt.resetAt) {
+    loginAttempts.set(key, { count: 0, resetAt: now + LOGIN_WINDOW_MS });
+    return false;
+  }
+  return attempt.count >= MAX_LOGIN_ATTEMPTS;
+}
+
+function recordLoginFailure(req) {
+  const key = getClientIp(req) || 'unknown';
+  const now = Date.now();
+  const attempt = loginAttempts.get(key) || { count: 0, resetAt: now + LOGIN_WINDOW_MS };
+  if (now > attempt.resetAt) {
+    attempt.count = 0;
+    attempt.resetAt = now + LOGIN_WINDOW_MS;
+  }
+  attempt.count += 1;
+  loginAttempts.set(key, attempt);
+}
+
+function clearLoginFailures(req) {
+  loginAttempts.delete(getClientIp(req) || 'unknown');
+}
 
 // ===== File Upload Configuration =====
 // Local uploads (for dev)
@@ -271,12 +336,66 @@ const storage = multer.diskStorage({
 // For Vercel: use memory storage
 const memoryStorage = multer.memoryStorage();
 
+const ALLOWED_MEDIA_EXTS = new Set(['.jpg', '.jpeg', '.png', '.gif', '.webp', '.mp4', '.webm', '.mov', '.avi']);
+const ALLOWED_RESUME_EXTS = new Set(['.pdf', '.doc', '.docx']);
+
+function hasAllowedExt(file, allowedExts) {
+  return allowedExts.has(path.extname(file.originalname).toLowerCase());
+}
+
+function hasAllowedMediaMime(file) {
+  return /^image\/(jpeg|png|gif|webp)$/.test(file.mimetype) ||
+    /^video\/(mp4|webm|quicktime|x-msvideo)$/.test(file.mimetype);
+}
+
+function readUploadPrefix(file, bytes = 16) {
+  if (file.buffer) return file.buffer.subarray(0, bytes);
+  return fs.readFileSync(file.path).subarray(0, bytes);
+}
+
+function isAllowedMediaSignature(buf) {
+  if (buf.length < 4) return false;
+  const hex = buf.toString('hex');
+  const ascii = buf.toString('ascii');
+  return hex.startsWith('ffd8ff') ||
+    hex.startsWith('89504e47') ||
+    ascii.startsWith('GIF8') ||
+    (ascii.startsWith('RIFF') && ascii.slice(8, 12) === 'WEBP') ||
+    (ascii.startsWith('RIFF') && ascii.slice(8, 11) === 'AVI') ||
+    (ascii.slice(4, 8) === 'ftyp') ||
+    hex.startsWith('1a45dfa3');
+}
+
+function isAllowedResumeSignature(buf) {
+  if (buf.length < 4) return false;
+  const hex = buf.toString('hex');
+  const ascii = buf.toString('ascii');
+  return ascii.startsWith('%PDF') ||
+    hex.startsWith('d0cf11e0') ||
+    ascii.startsWith('PK\u0003\u0004');
+}
+
+function cleanupRejectedUpload(file) {
+  if (!file.buffer && file.path && fs.existsSync(file.path)) {
+    fs.unlinkSync(file.path);
+  }
+}
+
+function validateUploadContent(file, kind) {
+  const buf = readUploadPrefix(file);
+  const valid = kind === 'resume' ? isAllowedResumeSignature(buf) : isAllowedMediaSignature(buf);
+  if (!valid) {
+    cleanupRejectedUpload(file);
+    return false;
+  }
+  return true;
+}
+
 const upload = multer({
   storage: IS_VERCEL ? memoryStorage : storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /\.(jpg|jpeg|png|gif|webp|svg|mp4|webm|mov|avi)$/i;
-    if (allowed.test(path.extname(file.originalname))) {
+    if (hasAllowedExt(file, ALLOWED_MEDIA_EXTS) && hasAllowedMediaMime(file)) {
       cb(null, true);
     } else {
       cb(new Error('只允许上传图片或视频文件'));
@@ -343,6 +462,9 @@ app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res)
   if (!req.file) {
     return res.status(400).json({ error: '请选择要上传的图片' });
   }
+  if (!validateUploadContent(req.file, 'media')) {
+    return res.status(400).json({ error: '文件内容与允许的图片/视频格式不匹配' });
+  }
 
   try {
     if (IS_VERCEL && BLOB_TOKEN) {
@@ -371,8 +493,7 @@ const resumeUpload = multer({
   storage: IS_VERCEL ? memoryStorage : storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /\.(pdf|doc|docx)$/i;
-    if (allowed.test(path.extname(file.originalname))) {
+    if (hasAllowedExt(file, ALLOWED_RESUME_EXTS)) {
       cb(null, true);
     } else {
       cb(new Error('只允许上传 PDF/DOC/DOCX 文件'));
@@ -383,6 +504,9 @@ const resumeUpload = multer({
 app.post('/api/upload/resume', authMiddleware, resumeUpload.single('file'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ error: '请选择要上传的简历文件' });
+  }
+  if (!validateUploadContent(req.file, 'resume')) {
+    return res.status(400).json({ error: '文件内容与允许的简历格式不匹配' });
   }
   try {
     let url;
@@ -423,14 +547,23 @@ app.put('/api/admin/resume', authMiddleware, asyncHandler(async (req, res) => {
 
 // ===== Auth API =====
 app.post('/api/login', asyncHandler(async (req, res) => {
+  if (isLoginLimited(req)) {
+    return res.status(429).json({ error: '登录尝试过多，请稍后再试' });
+  }
+
   const { username, password } = req.body;
   const auth = await readAuth();
-  if (username === auth.username && hashPassword(password) === auth.password) {
+  if (username === auth.username && verifyPassword(password, auth.password)) {
+    if (!String(auth.password || '').startsWith('pbkdf2$')) {
+      await writeAuth({ ...auth, password: hashPassword(password) });
+    }
+    clearLoginFailures(req);
     const token = generateToken();
     sessions.set(token, { username, loginTime: Date.now() });
     await saveSessions();
     res.json({ success: true, token, username });
   } else {
+    recordLoginFailure(req);
     res.status(401).json({ error: '用户名或密码错误' });
   }
 }));
@@ -448,7 +581,7 @@ app.put('/api/admin/auth', authMiddleware, asyncHandler(async (req, res) => {
   const { username, oldPassword, newPassword } = req.body;
   const auth = await readAuth();
 
-  if (hashPassword(oldPassword) !== auth.password) {
+  if (!verifyPassword(oldPassword, auth.password)) {
     return res.status(400).json({ error: '原密码错误' });
   }
 
@@ -714,10 +847,9 @@ app.delete('/api/admin/assets', authMiddleware, async (req, res) => {
 // ===== Backup & Restore =====
 const BACKUP_PREFIX = 'backups/';
 
-// Create a backup (includes data.json + auth.json + asset URL list)
+// Create a backup (includes data.json + asset URL list, never auth.json)
 app.post('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
   const data = await readData();
-  const auth = await readAuth();
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
   const label = req.body.label || '';
@@ -748,7 +880,7 @@ app.post('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => 
     size: 0 // will be calculated below
   };
 
-  const backupContent = { meta: backupMeta, data, auth, assets };
+  const backupContent = { meta: backupMeta, data, assets };
   const backupJSON = JSON.stringify(backupContent, null, 2);
   backupMeta.size = backupJSON.length;
   // Re-serialize with final size
@@ -811,7 +943,7 @@ app.get('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
   res.json({ backups });
 }));
 
-// Restore a backup (restores data.json + auth.json if present)
+// Restore a backup (restores data.json only; old backups may still contain auth but it is ignored)
 app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (req, res) => {
   const backupId = req.params.id;
   let backupContent;
@@ -833,7 +965,6 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
 
   // Auto-backup current state before restoring (full backup including auth & assets)
   const currentData = await readData();
-  const currentAuth = await readAuth();
   const autoBackupTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
   let currentAssets = [];
@@ -857,7 +988,7 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
       assetsCount: currentAssets.length,
       size: 0
     },
-    data: currentData, auth: currentAuth, assets: currentAssets
+    data: currentData, assets: currentAssets
   };
   const autoJSON = JSON.stringify(autoBackupContent, null, 2);
   autoBackupContent.meta.size = autoJSON.length;
@@ -875,11 +1006,6 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
 
   // Restore data.json
   await writeData(backupContent.data);
-
-  // Restore auth.json if backup contains it
-  if (backupContent.auth) {
-    await writeAuth(backupContent.auth);
-  }
 
   // Report on asset status
   let assetWarning = '';

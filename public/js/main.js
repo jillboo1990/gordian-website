@@ -1,6 +1,32 @@
 // ===== Load Site Data from API =====
 let siteData = {};
 
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function withLineBreaks(value) {
+  return escapeHTML(value).replace(/\n/g, '<br>');
+}
+
+function safeURL(value) {
+  const raw = String(value || '').trim();
+  if (!raw) return '';
+  try {
+    const url = new URL(raw, window.location.origin);
+    if (['http:', 'https:'].includes(url.protocol)) return url.href;
+    if (url.origin === window.location.origin && raw.startsWith('/')) return raw;
+  } catch (e) {
+    if (/^\/[^\s]*$/.test(raw)) return raw;
+  }
+  return '';
+}
+
 async function loadSiteData() {
   try {
     const res = await fetch('/api/data');
@@ -48,7 +74,7 @@ function renderHero() {
   const hero = siteData.hero;
   if (!hero) return;
 
-  document.getElementById('heroImage').src = hero.image;
+  document.getElementById('heroImage').src = safeURL(hero.image);
 
   // Setup spotlight + hover image
   const heroSection = document.querySelector('.hero-section');
@@ -82,8 +108,8 @@ function renderHero() {
 
   // Hover image switch with fade
   if (hero.hoverImage) {
-    const originalSrc = hero.image;
-    const hoverSrc = hero.hoverImage;
+    const originalSrc = safeURL(hero.image);
+    const hoverSrc = safeURL(hero.hoverImage);
 
     // Preload hover image
     const preload = new Image();
@@ -107,17 +133,17 @@ function renderHero() {
   }
 
   // Top left title (line breaks rendered as <br>)
-  document.getElementById('heroTopLeftTitle').innerHTML = (hero.topLeftTitle || '').replace(/\n/g, '<br>');
+  document.getElementById('heroTopLeftTitle').innerHTML = withLineBreaks(hero.topLeftTitle);
 
   // Top right title
-  document.getElementById('heroTopRightTitle').innerHTML = (hero.topRightTitle || '').replace(/\n/g, '<br>');
+  document.getElementById('heroTopRightTitle').innerHTML = withLineBreaks(hero.topRightTitle);
 
   // Bottom left subtitle + description
   document.getElementById('heroBottomLeftSubtitle').textContent = hero.bottomLeftSubtitle || '';
-  document.getElementById('heroBottomLeftDesc').innerHTML = (hero.bottomLeftDesc || '').replace(/\n/g, '<br>');
+  document.getElementById('heroBottomLeftDesc').innerHTML = withLineBreaks(hero.bottomLeftDesc);
 
   // Bottom right description
-  document.getElementById('heroBottomRightDesc').innerHTML = (hero.bottomRightDesc || '').replace(/\n/g, '<br>');
+  document.getElementById('heroBottomRightDesc').innerHTML = withLineBreaks(hero.bottomRightDesc);
 }
 
 // ===== Render Info Bar =====
@@ -126,18 +152,18 @@ function renderInfoBar() {
   if (!si) return;
 
   // Wechat
-  document.getElementById('infoSocial').innerHTML = `<span>${si.social?.wechat || ''}</span>`;
+  document.getElementById('infoSocial').innerHTML = `<span>${escapeHTML(si.social?.wechat)}</span>`;
 
   // Phone
   const phoneEl = document.getElementById('infoPhone');
-  if (phoneEl) phoneEl.innerHTML = `<span>${si.phone || ''}</span>`;
+  if (phoneEl) phoneEl.innerHTML = `<span>${escapeHTML(si.phone)}</span>`;
 
   // Location
   document.getElementById('infoLocation').textContent = si.location || '';
 
   // Expertise
   const expEl = document.getElementById('infoExpertise');
-  expEl.innerHTML = `<span>${(si.expertise || []).join(' / ')}</span>`;
+  expEl.innerHTML = `<span>${escapeHTML((si.expertise || []).join(' / '))}</span>`;
 }
 
 // ===== Render About =====
@@ -148,8 +174,8 @@ function renderAbout() {
   document.getElementById('aboutTitle').textContent = about.title || 'ABOUT';
   document.getElementById('aboutNumber').textContent = about.number || 'S01';
   document.getElementById('aboutText').textContent = about.description || '';
-  document.getElementById('aboutImage1').src = about.image1 || '';
-  document.getElementById('aboutImage2').src = about.image2 || '';
+  document.getElementById('aboutImage1').src = safeURL(about.image1);
+  document.getElementById('aboutImage2').src = safeURL(about.image2);
   document.getElementById('aboutStatLabel1').textContent = about.statLabel1 || 'Works';
   document.getElementById('aboutWorks').textContent = String(about.works || 0).padStart(2, '0');
   document.getElementById('aboutStatLabel2').textContent = about.statLabel2 || 'Years';
@@ -159,7 +185,7 @@ function renderAbout() {
   const resume = siteData.resume;
   const resumeBtn = document.getElementById('resumeBtn');
   if (resumeBtn && resume && resume.enabled && resume.fileUrl) {
-    resumeBtn.href = resume.fileUrl;
+    resumeBtn.href = safeURL(resume.fileUrl);
     resumeBtn.querySelector('.btn-text').textContent = resume.btnText || '下载简历';
     resumeBtn.style.display = 'inline-flex';
   }
@@ -180,15 +206,15 @@ function renderExperiences() {
   container.innerHTML = exps.map(exp => `
     <div class="experience-item">
       <div class="exp-row">
-        <div class="exp-date">${exp.startDate && exp.endDate ? exp.startDate + ' / ' + exp.endDate : ''}</div>
+        <div class="exp-date">${escapeHTML(exp.startDate && exp.endDate ? exp.startDate + ' / ' + exp.endDate : '')}</div>
         <div class="exp-divider"></div>
-        <div class="exp-role">${exp.role}</div>
-        <div class="exp-company">${exp.company}</div>
+        <div class="exp-role">${escapeHTML(exp.role)}</div>
+        <div class="exp-company">${escapeHTML(exp.company)}</div>
       </div>
       <div class="exp-row exp-row-desc">
         <div class="exp-date-placeholder"></div>
         <div class="exp-divider"></div>
-        <p class="exp-description">${exp.description}</p>
+        <p class="exp-description">${escapeHTML(exp.description)}</p>
       </div>
     </div>
   `).join('');
@@ -201,17 +227,17 @@ function renderWorks() {
 
   const container = document.getElementById('worksGrid');
   container.innerHTML = works.map(w => `
-    <a href="/work/${w.id}" class="work-item">
+    <a href="/work/${encodeURIComponent(String(w.id || ''))}" class="work-item">
       <div class="work-meta">
-        <span class="work-tags">${w.tags}</span>
-        <span class="work-year">${w.year}</span>
+        <span class="work-tags">${escapeHTML(w.tags)}</span>
+        <span class="work-year">${escapeHTML(w.year)}</span>
       </div>
       <div class="work-image">
-        ${w.image ? `<img src="${w.image}" alt="${w.name}" onerror="this.style.display='none'">` : ''}
+        ${safeURL(w.image) ? `<img src="${escapeHTML(safeURL(w.image))}" alt="${escapeHTML(w.name)}" onerror="this.style.display='none'">` : ''}
       </div>
       <div class="work-info">
-        <h3 class="work-name">${w.name}</h3>
-        <span class="work-category">${w.category}</span>
+        <h3 class="work-name">${escapeHTML(w.name)}</h3>
+        <span class="work-category">${escapeHTML(w.category)}</span>
       </div>
     </a>
   `).join('');
@@ -228,10 +254,10 @@ function renderServices() {
   document.getElementById('serviceText').textContent = svc.description || '';
 
   const tagsEl = document.getElementById('serviceTags');
-  tagsEl.innerHTML = (svc.specializations || []).map(s => `<span>${s}</span>`).join('');
+  tagsEl.innerHTML = (svc.specializations || []).map(s => `<span>${escapeHTML(s)}</span>`).join('');
 
   const headingsEl = document.getElementById('serviceHeadings');
-  headingsEl.innerHTML = (svc.headings || []).map(h => `<h1>${h}</h1>`).join('');
+  headingsEl.innerHTML = (svc.headings || []).map(h => `<h1>${escapeHTML(h)}</h1>`).join('');
 }
 
 // ===== Render Process =====
@@ -245,7 +271,7 @@ function renderProcess() {
   // Render images
   imagesEl.innerHTML = (proc.images || []).map((img, i) => `
     <div class="process-img-wrapper">
-      <img src="${img}" alt="Process ${i + 1}">
+      <img src="${escapeHTML(safeURL(img))}" alt="Process ${i + 1}">
     </div>
   `).join('');
 
@@ -253,8 +279,8 @@ function renderProcess() {
   const stepsEl = document.getElementById('processSteps');
   if (!stepsEl) return;
   stepsEl.innerHTML = (proc.steps || []).map((step, i) => `
-    <div class="process-step ${i === 0 ? 'active' : ''}" data-step="${step.id}">
-      <h4>${step.title}</h4>
+    <div class="process-step ${i === 0 ? 'active' : ''}" data-step="${escapeHTML(step.id)}">
+      <h4>${escapeHTML(step.title)}</h4>
     </div>
   `).join('');
 
@@ -293,16 +319,16 @@ function renderContact() {
   document.getElementById('contactBrand').textContent = si.brand || 'Bill.Yu';
 
   // Wechat
-  document.getElementById('contactSocial').innerHTML = `<span>${si.social?.wechat || ''}</span>`;
+  document.getElementById('contactSocial').innerHTML = `<span>${escapeHTML(si.social?.wechat)}</span>`;
 
   // Phone
-  document.getElementById('contactPhone').innerHTML = `<span>${si.phone || ''}</span>`;
+  document.getElementById('contactPhone').innerHTML = `<span>${escapeHTML(si.phone)}</span>`;
 
   // Location
-  document.getElementById('contactLocation').innerHTML = `<span>${si.location || ''}</span>`;
+  document.getElementById('contactLocation').innerHTML = `<span>${escapeHTML(si.location)}</span>`;
 
   // Expertise
-  document.getElementById('contactExpertise').innerHTML = `<span>${(si.expertise || []).join(' / ')}</span>`;
+  document.getElementById('contactExpertise').innerHTML = `<span>${escapeHTML((si.expertise || []).join(' / '))}</span>`;
 }
 
 // ===== Render Nav Brand =====
