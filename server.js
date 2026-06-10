@@ -60,6 +60,46 @@ async function blobWriteJSON(filename, data) {
 const DATA_FILE = path.join(__dirname, 'data.json');
 const AUTH_FILE = path.join(__dirname, 'auth.json');
 
+// ===== Write Lock (prevents concurrent read-modify-write races) =====
+let writeLock = Promise.resolve();
+function withWriteLock(fn) {
+  // Queue operations sequentially to prevent data races
+  const next = writeLock.then(fn, fn);
+  writeLock = next.catch(() => {}); // prevent unhandled rejection chain
+  return next;
+}
+
+// ===== Auto-snapshot: keep last N snapshots before each write =====
+const SNAPSHOT_PREFIX = 'snapshots/';
+const MAX_SNAPSHOTS = 20;
+let snapshotCount = 0;
+
+async function autoSnapshot(currentData) {
+  if (!IS_VERCEL || !BLOB_TOKEN) return; // Only on Vercel
+  try {
+    const ts = Date.now();
+    await put(SNAPSHOT_PREFIX + ts + '.json', JSON.stringify(currentData), {
+      access: 'public', token: BLOB_TOKEN, contentType: 'application/json',
+      addRandomSuffix: false, allowOverwrite: true
+    });
+    snapshotCount++;
+    // Cleanup old snapshots periodically (every 10 writes)
+    if (snapshotCount % 10 === 0) {
+      const { blobs } = await list({ prefix: SNAPSHOT_PREFIX, token: BLOB_TOKEN, limit: 100 });
+      if (blobs.length > MAX_SNAPSHOTS) {
+        const toDelete = blobs
+          .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
+          .slice(0, blobs.length - MAX_SNAPSHOTS);
+        if (toDelete.length > 0) {
+          await del(toDelete.map(b => b.url), { token: BLOB_TOKEN });
+        }
+      }
+    }
+  } catch (e) {
+    console.error('Auto-snapshot failed (non-fatal):', e.message);
+  }
+}
+
 async function readData() {
   if (IS_VERCEL && BLOB_TOKEN) {
     // On Vercel: ONLY read from Blob. NEVER fall back to local file.
@@ -88,6 +128,18 @@ async function writeData(data) {
   } else {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   }
+}
+
+// Safe read-modify-write: acquires lock, reads fresh data, applies modifier, writes back
+// This prevents ALL race conditions from concurrent API calls
+async function safeUpdateData(modifierFn) {
+  return withWriteLock(async () => {
+    const data = await readData();
+    await autoSnapshot(data); // save snapshot before any modification
+    const result = await modifierFn(data);
+    await writeData(data);
+    return result;
+  });
 }
 
 async function readAuth() {
@@ -329,12 +381,12 @@ app.post('/api/upload/resume', authMiddleware, resumeUpload.single('file'), asyn
     } else {
       url = '/uploads/' + req.file.filename;
     }
-    // Save to data
-    const data = await readData();
-    data.resume = data.resume || {};
-    data.resume.fileUrl = url;
-    data.resume.fileName = req.file.originalname;
-    await writeData(data);
+    // Save to data using safe update
+    await safeUpdateData(data => {
+      data.resume = data.resume || {};
+      data.resume.fileUrl = url;
+      data.resume.fileName = req.file.originalname;
+    });
     res.json({ success: true, url, fileName: req.file.originalname });
   } catch (err) {
     res.status(500).json({ error: '上传失败: ' + err.message });
@@ -343,10 +395,11 @@ app.post('/api/upload/resume', authMiddleware, resumeUpload.single('file'), asyn
 
 // Update resume config
 app.put('/api/admin/resume', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.resume = { ...data.resume, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.resume });
+  const result = await safeUpdateData(data => {
+    data.resume = { ...data.resume, ...req.body };
+    return data.resume;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // ===== Auth API =====
@@ -404,59 +457,66 @@ app.get('/api/admin/data', authMiddleware, asyncHandler(async (req, res) => {
 
 // Update site info
 app.put('/api/admin/site-info', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.siteInfo = { ...data.siteInfo, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.siteInfo });
+  const result = await safeUpdateData(data => {
+    data.siteInfo = { ...data.siteInfo, ...req.body };
+    return data.siteInfo;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Toggle disguise mode
 app.put('/api/admin/disguise', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.siteInfo = data.siteInfo || {};
-  data.siteInfo.disguiseMode = !!req.body.enabled;
-  await writeData(data);
-  res.json({ success: true, disguiseMode: data.siteInfo.disguiseMode });
+  const result = await safeUpdateData(data => {
+    data.siteInfo = data.siteInfo || {};
+    data.siteInfo.disguiseMode = !!req.body.enabled;
+    return data.siteInfo.disguiseMode;
+  });
+  res.json({ success: true, disguiseMode: result });
 }));
 
 // Update hero
 app.put('/api/admin/hero', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.hero = { ...data.hero, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.hero });
+  const result = await safeUpdateData(data => {
+    data.hero = { ...data.hero, ...req.body };
+    return data.hero;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Update about
 app.put('/api/admin/about', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.about = { ...data.about, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.about });
+  const result = await safeUpdateData(data => {
+    data.about = { ...data.about, ...req.body };
+    return data.about;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Update contact
 app.put('/api/admin/contact', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.contact = { ...data.contact, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.contact });
+  const result = await safeUpdateData(data => {
+    data.contact = { ...data.contact, ...req.body };
+    return data.contact;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Update process
 app.put('/api/admin/process', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.process = { ...data.process, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.process });
+  const result = await safeUpdateData(data => {
+    data.process = { ...data.process, ...req.body };
+    return data.process;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // Update experience section title/number
 app.put('/api/admin/experience-section', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.experienceSection = { ...data.experienceSection, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.experienceSection });
+  const result = await safeUpdateData(data => {
+    data.experienceSection = { ...data.experienceSection, ...req.body };
+    return data.experienceSection;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // ===== Experiences CRUD =====
@@ -466,26 +526,28 @@ app.get('/api/admin/experiences', authMiddleware, asyncHandler(async (req, res) 
 }));
 
 app.post('/api/admin/experiences', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  const newExp = { id: Date.now(), ...req.body };
-  data.experiences.push(newExp);
-  await writeData(data);
-  res.json({ success: true, data: newExp });
+  const result = await safeUpdateData(data => {
+    const newExp = { id: Date.now(), ...req.body };
+    data.experiences.push(newExp);
+    return newExp;
+  });
+  res.json({ success: true, data: result });
 }));
 
 app.put('/api/admin/experiences/:id', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  const idx = data.experiences.findIndex(e => e.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  data.experiences[idx] = { ...data.experiences[idx], ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.experiences[idx] });
+  const result = await safeUpdateData(data => {
+    const idx = data.experiences.findIndex(e => e.id === parseInt(req.params.id));
+    if (idx === -1) throw { status: 404, error: 'Not found' };
+    data.experiences[idx] = { ...data.experiences[idx], ...req.body };
+    return data.experiences[idx];
+  });
+  res.json({ success: true, data: result });
 }));
 
 app.delete('/api/admin/experiences/:id', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.experiences = data.experiences.filter(e => e.id !== parseInt(req.params.id));
-  await writeData(data);
+  await safeUpdateData(data => {
+    data.experiences = data.experiences.filter(e => e.id !== parseInt(req.params.id));
+  });
   res.json({ success: true });
 }));
 
@@ -496,35 +558,38 @@ app.get('/api/admin/works', authMiddleware, asyncHandler(async (req, res) => {
 }));
 
 app.post('/api/admin/works', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  const newWork = { id: Date.now(), ...req.body };
-  data.works.push(newWork);
-  await writeData(data);
-  res.json({ success: true, data: newWork });
+  const result = await safeUpdateData(data => {
+    const newWork = { id: Date.now(), ...req.body };
+    data.works.push(newWork);
+    return newWork;
+  });
+  res.json({ success: true, data: result });
 }));
 
 app.put('/api/admin/works/:id', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  data.works[idx] = { ...data.works[idx], ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.works[idx] });
+  const result = await safeUpdateData(data => {
+    const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
+    if (idx === -1) throw { status: 404, error: 'Not found' };
+    data.works[idx] = { ...data.works[idx], ...req.body };
+    return data.works[idx];
+  });
+  res.json({ success: true, data: result });
 }));
 
 app.put('/api/admin/works/:id/toggle-hidden', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  data.works[idx].hidden = !data.works[idx].hidden;
-  await writeData(data);
-  res.json({ success: true, hidden: data.works[idx].hidden });
+  const result = await safeUpdateData(data => {
+    const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
+    if (idx === -1) throw { status: 404, error: 'Not found' };
+    data.works[idx].hidden = !data.works[idx].hidden;
+    return data.works[idx].hidden;
+  });
+  res.json({ success: true, hidden: result });
 }));
 
 app.delete('/api/admin/works/:id', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.works = data.works.filter(w => w.id !== parseInt(req.params.id));
-  await writeData(data);
+  await safeUpdateData(data => {
+    data.works = data.works.filter(w => w.id !== parseInt(req.params.id));
+  });
   res.json({ success: true });
 }));
 
@@ -538,20 +603,21 @@ app.get('/api/works/:id', asyncHandler(async (req, res) => {
 
 // Update work detail content
 app.put('/api/admin/works/:id/detail', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
-  if (idx === -1) return res.status(404).json({ error: 'Not found' });
-  data.works[idx].detail = req.body.detail || '';
-  await writeData(data);
+  await safeUpdateData(data => {
+    const idx = data.works.findIndex(w => w.id === parseInt(req.params.id));
+    if (idx === -1) throw { status: 404, error: 'Not found' };
+    data.works[idx].detail = req.body.detail || '';
+  });
   res.json({ success: true });
 }));
 
 // ===== Services =====
 app.put('/api/admin/services', authMiddleware, asyncHandler(async (req, res) => {
-  const data = await readData();
-  data.services = { ...data.services, ...req.body };
-  await writeData(data);
-  res.json({ success: true, data: data.services });
+  const result = await safeUpdateData(data => {
+    data.services = { ...data.services, ...req.body };
+    return data.services;
+  });
+  res.json({ success: true, data: result });
 }));
 
 // ===== Asset Manager =====
@@ -850,10 +916,14 @@ app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// Global error handler - catches unhandled async errors and returns 500
+// Global error handler - catches unhandled async errors and returns appropriate status
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err.message);
   if (!res.headersSent) {
+    // Handle custom status errors thrown from safeUpdateData
+    if (err.status && err.error) {
+      return res.status(err.status).json({ error: err.error });
+    }
+    console.error('Unhandled error:', err.message || err);
     res.status(500).json({ success: false, error: err.message || '服务器内部错误' });
   }
 });
