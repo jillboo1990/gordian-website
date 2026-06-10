@@ -629,134 +629,181 @@ app.delete('/api/admin/assets', authMiddleware, async (req, res) => {
 // ===== Backup & Restore =====
 const BACKUP_PREFIX = 'backups/';
 
-// Create a backup
-app.post('/api/admin/backups', authMiddleware, async (req, res) => {
-  try {
-    const data = await readData();
-    const now = new Date();
-    const timestamp = now.toISOString().replace(/[:.]/g, '-');
-    const label = req.body.label || '';
-    const backupMeta = {
-      id: timestamp,
-      label: label,
-      createdAt: now.toISOString(),
-      worksCount: (data.works || []).length,
-      size: JSON.stringify(data).length
-    };
-    const backupContent = { meta: backupMeta, data: data };
+// Create a backup (includes data.json + auth.json + asset URL list)
+app.post('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
+  const data = await readData();
+  const auth = await readAuth();
+  const now = new Date();
+  const timestamp = now.toISOString().replace(/[:.]/g, '-');
+  const label = req.body.label || '';
 
-    if (IS_VERCEL && BLOB_TOKEN) {
-      await put(BACKUP_PREFIX + timestamp + '.json', JSON.stringify(backupContent, null, 2), {
-        access: 'public',
-        token: BLOB_TOKEN,
-        contentType: 'application/json',
-        addRandomSuffix: false,
-        allowOverwrite: true
-      });
-    } else {
-      const backupDir = path.join(__dirname, 'backups');
-      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-      fs.writeFileSync(path.join(backupDir, timestamp + '.json'), JSON.stringify(backupContent, null, 2));
-    }
-    res.json({ success: true, backup: backupMeta });
-  } catch (err) {
-    console.error('Create backup error:', err);
-    res.status(500).json({ error: '创建备份失败：' + err.message });
+  // Collect all uploaded asset URLs from Vercel Blob
+  let assets = [];
+  if (IS_VERCEL && BLOB_TOKEN) {
+    let cursor;
+    do {
+      const result = await list({ prefix: 'uploads/', token: BLOB_TOKEN, limit: 1000, cursor });
+      assets = assets.concat(result.blobs.map(b => ({
+        url: b.url,
+        pathname: b.pathname,
+        size: b.size,
+        contentType: b.contentType || '',
+        uploadedAt: b.uploadedAt
+      })));
+      cursor = result.cursor;
+    } while (cursor);
   }
-});
+
+  const backupMeta = {
+    id: timestamp,
+    label: label,
+    createdAt: now.toISOString(),
+    worksCount: (data.works || []).length,
+    assetsCount: assets.length,
+    size: 0 // will be calculated below
+  };
+
+  const backupContent = { meta: backupMeta, data, auth, assets };
+  const backupJSON = JSON.stringify(backupContent, null, 2);
+  backupMeta.size = backupJSON.length;
+  // Re-serialize with final size
+  const finalJSON = JSON.stringify({ ...backupContent, meta: backupMeta }, null, 2);
+
+  if (IS_VERCEL && BLOB_TOKEN) {
+    await put(BACKUP_PREFIX + timestamp + '.json', finalJSON, {
+      access: 'public',
+      token: BLOB_TOKEN,
+      contentType: 'application/json',
+      addRandomSuffix: false,
+      allowOverwrite: true
+    });
+  } else {
+    const backupDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    fs.writeFileSync(path.join(backupDir, timestamp + '.json'), finalJSON);
+  }
+  res.json({ success: true, backup: backupMeta });
+}));
 
 // List all backups
-app.get('/api/admin/backups', authMiddleware, async (req, res) => {
+app.get('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
   res.set('Cache-Control', 'no-store');
-  try {
-    let backups = [];
-    if (IS_VERCEL && BLOB_TOKEN) {
-      let allBlobs = [];
-      let cursor;
-      do {
-        const result = await list({ prefix: BACKUP_PREFIX, token: BLOB_TOKEN, limit: 1000, cursor });
-        allBlobs = allBlobs.concat(result.blobs);
-        cursor = result.cursor;
-      } while (cursor);
-      // Read meta from each backup
-      for (const blob of allBlobs) {
+  let backups = [];
+  if (IS_VERCEL && BLOB_TOKEN) {
+    let allBlobs = [];
+    let cursor;
+    do {
+      const result = await list({ prefix: BACKUP_PREFIX, token: BLOB_TOKEN, limit: 1000, cursor });
+      allBlobs = allBlobs.concat(result.blobs);
+      cursor = result.cursor;
+    } while (cursor);
+    // Read meta from each backup
+    for (const blob of allBlobs) {
+      try {
+        const r = await fetch(blob.url + '?t=' + Date.now());
+        const content = await r.json();
+        backups.push(content.meta);
+      } catch (e) {
+        // Skip corrupted backups
+        backups.push({ id: blob.pathname.replace(BACKUP_PREFIX, '').replace('.json', ''), label: '(损坏)', createdAt: blob.uploadedAt, worksCount: 0, assetsCount: 0, size: blob.size });
+      }
+    }
+  } else {
+    const backupDir = path.join(__dirname, 'backups');
+    if (fs.existsSync(backupDir)) {
+      const files = fs.readdirSync(backupDir).filter(f => f.endsWith('.json'));
+      for (const f of files) {
         try {
-          const r = await fetch(blob.url + '?t=' + Date.now());
-          const content = await r.json();
+          const content = JSON.parse(fs.readFileSync(path.join(backupDir, f), 'utf8'));
           backups.push(content.meta);
         } catch (e) {
-          // Skip corrupted backups
-          backups.push({ id: blob.pathname.replace(BACKUP_PREFIX, '').replace('.json', ''), label: '(损坏)', createdAt: blob.uploadedAt, worksCount: 0, size: blob.size });
-        }
-      }
-    } else {
-      const backupDir = path.join(__dirname, 'backups');
-      if (fs.existsSync(backupDir)) {
-        const files = fs.readdirSync(backupDir).filter(f => f.endsWith('.json'));
-        for (const f of files) {
-          try {
-            const content = JSON.parse(fs.readFileSync(path.join(backupDir, f), 'utf8'));
-            backups.push(content.meta);
-          } catch (e) {
-            backups.push({ id: f.replace('.json', ''), label: '(损坏)', createdAt: '', worksCount: 0, size: 0 });
-          }
+          backups.push({ id: f.replace('.json', ''), label: '(损坏)', createdAt: '', worksCount: 0, assetsCount: 0, size: 0 });
         }
       }
     }
-    backups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    res.json({ backups });
-  } catch (err) {
-    console.error('List backups error:', err);
-    res.status(500).json({ error: '获取备份列表失败' });
   }
-});
+  backups.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  res.json({ backups });
+}));
 
-// Restore a backup
-app.post('/api/admin/backups/:id/restore', authMiddleware, async (req, res) => {
-  try {
-    const backupId = req.params.id;
-    let backupContent;
+// Restore a backup (restores data.json + auth.json if present)
+app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (req, res) => {
+  const backupId = req.params.id;
+  let backupContent;
 
-    if (IS_VERCEL && BLOB_TOKEN) {
-      const { blobs } = await list({ prefix: BACKUP_PREFIX + backupId, token: BLOB_TOKEN });
-      if (blobs.length === 0) return res.status(404).json({ error: '备份不存在' });
-      const r = await fetch(blobs[0].url + '?t=' + Date.now());
-      backupContent = await r.json();
-    } else {
-      const filepath = path.join(__dirname, 'backups', backupId + '.json');
-      if (!fs.existsSync(filepath)) return res.status(404).json({ error: '备份不存在' });
-      backupContent = JSON.parse(fs.readFileSync(filepath, 'utf8'));
-    }
-
-    if (!backupContent || !backupContent.data) {
-      return res.status(400).json({ error: '备份数据损坏' });
-    }
-
-    // Auto-backup current data before restoring
-    const currentData = await readData();
-    const autoBackupTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const autoBackupContent = {
-      meta: { id: autoBackupTimestamp, label: '恢复前自动备份', createdAt: new Date().toISOString(), worksCount: (currentData.works || []).length, size: JSON.stringify(currentData).length },
-      data: currentData
-    };
-    if (IS_VERCEL && BLOB_TOKEN) {
-      await put(BACKUP_PREFIX + autoBackupTimestamp + '.json', JSON.stringify(autoBackupContent, null, 2), {
-        access: 'public', token: BLOB_TOKEN, contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true
-      });
-    } else {
-      const backupDir = path.join(__dirname, 'backups');
-      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
-      fs.writeFileSync(path.join(backupDir, autoBackupTimestamp + '.json'), JSON.stringify(autoBackupContent, null, 2));
-    }
-
-    // Restore
-    await writeData(backupContent.data);
-    res.json({ success: true, message: '恢复成功，已自动备份恢复前的数据' });
-  } catch (err) {
-    console.error('Restore backup error:', err);
-    res.status(500).json({ error: '恢复失败：' + err.message });
+  if (IS_VERCEL && BLOB_TOKEN) {
+    const { blobs } = await list({ prefix: BACKUP_PREFIX + backupId, token: BLOB_TOKEN });
+    if (blobs.length === 0) return res.status(404).json({ error: '备份不存在' });
+    const r = await fetch(blobs[0].url + '?t=' + Date.now());
+    backupContent = await r.json();
+  } else {
+    const filepath = path.join(__dirname, 'backups', backupId + '.json');
+    if (!fs.existsSync(filepath)) return res.status(404).json({ error: '备份不存在' });
+    backupContent = JSON.parse(fs.readFileSync(filepath, 'utf8'));
   }
-});
+
+  if (!backupContent || !backupContent.data) {
+    return res.status(400).json({ error: '备份数据损坏' });
+  }
+
+  // Auto-backup current state before restoring (full backup including auth & assets)
+  const currentData = await readData();
+  const currentAuth = await readAuth();
+  const autoBackupTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+  let currentAssets = [];
+  if (IS_VERCEL && BLOB_TOKEN) {
+    let cursor;
+    do {
+      const result = await list({ prefix: 'uploads/', token: BLOB_TOKEN, limit: 1000, cursor });
+      currentAssets = currentAssets.concat(result.blobs.map(b => ({
+        url: b.url, pathname: b.pathname, size: b.size,
+        contentType: b.contentType || '', uploadedAt: b.uploadedAt
+      })));
+      cursor = result.cursor;
+    } while (cursor);
+  }
+
+  const autoBackupContent = {
+    meta: {
+      id: autoBackupTimestamp, label: '恢复前自动备份',
+      createdAt: new Date().toISOString(),
+      worksCount: (currentData.works || []).length,
+      assetsCount: currentAssets.length,
+      size: 0
+    },
+    data: currentData, auth: currentAuth, assets: currentAssets
+  };
+  const autoJSON = JSON.stringify(autoBackupContent, null, 2);
+  autoBackupContent.meta.size = autoJSON.length;
+  const autoFinalJSON = JSON.stringify(autoBackupContent, null, 2);
+
+  if (IS_VERCEL && BLOB_TOKEN) {
+    await put(BACKUP_PREFIX + autoBackupTimestamp + '.json', autoFinalJSON, {
+      access: 'public', token: BLOB_TOKEN, contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true
+    });
+  } else {
+    const backupDir = path.join(__dirname, 'backups');
+    if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+    fs.writeFileSync(path.join(backupDir, autoBackupTimestamp + '.json'), autoFinalJSON);
+  }
+
+  // Restore data.json
+  await writeData(backupContent.data);
+
+  // Restore auth.json if backup contains it
+  if (backupContent.auth) {
+    await writeAuth(backupContent.auth);
+  }
+
+  // Report on asset status
+  let assetWarning = '';
+  if (backupContent.assets && backupContent.assets.length > 0) {
+    assetWarning = `（备份中包含 ${backupContent.assets.length} 个资源文件记录，数据已恢复）`;
+  }
+
+  res.json({ success: true, message: '恢复成功，已自动备份恢复前的数据' + assetWarning });
+}));
 
 // Delete a backup
 app.delete('/api/admin/backups/:id', authMiddleware, async (req, res) => {

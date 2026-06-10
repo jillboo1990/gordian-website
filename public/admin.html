@@ -966,7 +966,7 @@
       <input type="text" id="backupLabel" placeholder="备份备注（可选，如：调整首页前）" style="flex:1;">
       <button class="btn btn-primary" onclick="createBackup()">立即备份</button>
     </div>
-    <p style="margin-top:12px;font-size:12px;color:var(--text-secondary);">备份包含所有网站数据（站点信息、作品列表、经历等），不含已上传的图片/视频文件。</p>
+    <p style="margin-top:12px;font-size:12px;color:var(--text-secondary);">备份包含所有网站数据（站点配置、作品列表、作品详情、经历等）+ 账号信息 + 所有已上传资源的 URL 记录。恢复时可完整还原。</p>
   </div>
   <div class="card" style="margin-top:16px;">
     <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;">
@@ -981,6 +981,7 @@
           <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">备份时间</th>
           <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">备注</th>
           <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">作品数</th>
+          <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">资源数</th>
           <th style="text-align:left;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">大小</th>
           <th style="text-align:right;padding:10px 12px;font-size:12px;color:var(--text-secondary);font-weight:500;">操作</th>
         </tr>
@@ -2315,6 +2316,7 @@ try {
               <td style="padding:10px 12px;font-size:13px;">${dateStr}</td>
               <td style="padding:10px 12px;font-size:13px;color:var(--text-secondary);">${b.label || '-'}</td>
               <td style="padding:10px 12px;font-size:13px;">${b.worksCount}</td>
+              <td style="padding:10px 12px;font-size:13px;">${b.assetsCount != null ? b.assetsCount : '-'}</td>
               <td style="padding:10px 12px;font-size:13px;">${sizeStr}</td>
               <td style="padding:10px 12px;text-align:right;">
                 <button class="btn btn-primary btn-sm" onclick="restoreBackup('${b.id}')">恢复</button>
