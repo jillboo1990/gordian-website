@@ -42,12 +42,13 @@ async function blobReadJSON(filename, retries = 2) {
 
 async function blobWriteJSON(filename, data) {
   try {
-    // Overwrite directly - addRandomSuffix:false means same pathname is reused
+    // Overwrite directly - allowOverwrite required since @vercel/blob 0.27+
     await put(filename, JSON.stringify(data, null, 2), {
       access: 'public',
       token: BLOB_TOKEN,
       contentType: 'application/json',
-      addRandomSuffix: false
+      addRandomSuffix: false,
+      allowOverwrite: true
     });
   } catch (err) {
     console.error(`Blob write error (${filename}):`, err.message);
@@ -321,7 +322,8 @@ app.post('/api/upload/resume', authMiddleware, resumeUpload.single('file'), asyn
         access: 'public',
         token: BLOB_TOKEN,
         contentType: req.file.mimetype,
-        addRandomSuffix: false
+        addRandomSuffix: false,
+        allowOverwrite: true
       });
       url = blob.url;
     } else {
@@ -648,7 +650,8 @@ app.post('/api/admin/backups', authMiddleware, async (req, res) => {
         access: 'public',
         token: BLOB_TOKEN,
         contentType: 'application/json',
-        addRandomSuffix: false
+        addRandomSuffix: false,
+        allowOverwrite: true
       });
     } else {
       const backupDir = path.join(__dirname, 'backups');
@@ -738,7 +741,7 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, async (req, res) => {
     };
     if (IS_VERCEL && BLOB_TOKEN) {
       await put(BACKUP_PREFIX + autoBackupTimestamp + '.json', JSON.stringify(autoBackupContent, null, 2), {
-        access: 'public', token: BLOB_TOKEN, contentType: 'application/json', addRandomSuffix: false
+        access: 'public', token: BLOB_TOKEN, contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true
       });
     } else {
       const backupDir = path.join(__dirname, 'backups');
