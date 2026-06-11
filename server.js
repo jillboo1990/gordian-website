@@ -443,9 +443,64 @@ app.get('/api/time', (req, res) => {
   res.json({ time: timeStr });
 });
 
+// Helper: convert IP string to 32-bit integer
+function ipToLong(ip) {
+  const parts = ip.split('.');
+  if (parts.length !== 4) return null;
+  let num = 0;
+  for (let i = 0; i < 4; i++) {
+    const p = parseInt(parts[i], 10);
+    if (isNaN(p) || p < 0 || p > 255) return null;
+    num = (num * 256) + p;
+  }
+  return num >>> 0; // unsigned
+}
+
+// Check if an IP matches a rule (supports: single IP, CIDR like 192.168.1.0/24, range like 192.168.1.1-192.168.1.255)
+function ipMatchesRule(clientIP, rule) {
+  const clientNum = ipToLong(clientIP);
+  if (clientNum === null) return false;
+
+  if (rule.includes('/')) {
+    // CIDR format: 192.168.1.0/24
+    const [base, bits] = rule.split('/');
+    const baseNum = ipToLong(base);
+    const mask = bits == 0 ? 0 : (0xFFFFFFFF << (32 - parseInt(bits, 10))) >>> 0;
+    if (baseNum === null) return false;
+    return (clientNum & mask) === (baseNum & mask);
+  } else if (rule.includes('-')) {
+    // Range format: 192.168.1.1-192.168.1.255
+    const [startIP, endIP] = rule.split('-').map(s => s.trim());
+    const startNum = ipToLong(startIP);
+    const endNum = ipToLong(endIP);
+    if (startNum === null || endNum === null) return false;
+    return clientNum >= startNum && clientNum <= endNum;
+  } else {
+    // Single IP
+    return clientNum === ipToLong(rule);
+  }
+}
+
+// Debug: show visitor's IP (can be removed later)
+app.get('/api/my-ip', (req, res) => {
+  const clientIP = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+  res.json({ ip: clientIP, forwarded: req.headers['x-forwarded-for'] || null });
+});
+
 app.get('/api/data', asyncHandler(async (req, res) => {
   res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
   const data = await readData();
+
+  // IP-based disguise: check if visitor IP matches configured disguise IP rules
+  const disguiseIPs = data.siteInfo?.disguiseIPs || [];
+  if (disguiseIPs.length > 0) {
+    const clientIP = (req.headers['x-forwarded-for'] || req.socket?.remoteAddress || '').split(',')[0].trim();
+    if (disguiseIPs.some(rule => ipMatchesRule(clientIP, rule))) {
+      data.siteInfo = data.siteInfo || {};
+      data.siteInfo.disguiseMode = true;
+    }
+  }
+
   // Filter out hidden works for public API
   if (data.works) {
     data.works = data.works.filter(w => !w.hidden).map(w => {
@@ -620,10 +675,18 @@ app.put('/api/admin/site-info', authMiddleware, asyncHandler(async (req, res) =>
 app.put('/api/admin/disguise', authMiddleware, asyncHandler(async (req, res) => {
   const result = await safeUpdateData(data => {
     data.siteInfo = data.siteInfo || {};
-    data.siteInfo.disguiseMode = !!req.body.enabled;
-    return data.siteInfo.disguiseMode;
+    if (req.body.enabled !== undefined) {
+      data.siteInfo.disguiseMode = !!req.body.enabled;
+    }
+    if (req.body.ips !== undefined) {
+      // Save IP list (array of strings)
+      data.siteInfo.disguiseIPs = Array.isArray(req.body.ips)
+        ? req.body.ips.filter(ip => ip && ip.trim()).map(ip => ip.trim())
+        : [];
+    }
+    return { disguiseMode: data.siteInfo.disguiseMode, disguiseIPs: data.siteInfo.disguiseIPs || [] };
   });
-  res.json({ success: true, disguiseMode: result });
+  res.json({ success: true, ...result });
 }));
 
 // Update hero
@@ -716,6 +779,20 @@ app.post('/api/admin/works', authMiddleware, asyncHandler(async (req, res) => {
     return newWork;
   });
   res.json({ success: true, data: result });
+}));
+
+// Reorder works (must be before :id routes)
+app.put('/api/admin/works/reorder', authMiddleware, asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+  if (!Array.isArray(ids)) return res.status(400).json({ error: 'ids must be an array' });
+  await safeUpdateData(data => {
+    const worksMap = new Map(data.works.map(w => [w.id, w]));
+    const reordered = ids.map(id => worksMap.get(id)).filter(Boolean);
+    // Append any works not in the ids list (safety)
+    data.works.forEach(w => { if (!ids.includes(w.id)) reordered.push(w); });
+    data.works = reordered;
+  });
+  res.json({ success: true });
 }));
 
 app.put('/api/admin/works/:id', authMiddleware, asyncHandler(async (req, res) => {

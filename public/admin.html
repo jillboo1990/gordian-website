@@ -426,6 +426,13 @@
       font-size: 11px;
       color: var(--text-secondary);
     }
+    /* Drag sort */
+    tr.drag-over {
+      border-top: 2px solid #22c55e !important;
+    }
+    tr[draggable]:active {
+      cursor: grabbing;
+    }
     .upload-group {
       display: flex;
       gap: 8px;
@@ -814,6 +821,7 @@
           <table class="data-table">
             <thead>
               <tr>
+                <th>排序</th>
                 <th>图片</th>
                 <th>名称</th>
                 <th>标签</th>
@@ -1014,6 +1022,20 @@
             关闭后恢复显示你的真实作品集网站。<br>
             此设置不影响后台管理页面。
           </p>
+        </div>
+        <div class="card" style="margin-top:16px;">
+          <div class="card-header">
+            <h3>IP 自动伪装</h3>
+          </div>
+          <p style="color:var(--text-secondary);font-size:12px;line-height:1.6;margin-bottom:12px;">
+            配置 IP 范围后，当访客 IP 匹配列表中的任意规则时，将自动显示伪装页面（无论伪装开关是否开启）。<br>
+            每行填写一条规则，支持以下格式：<br>
+            · CIDR 格式：192.168.1.0/24<br>
+            · 起止范围：192.168.1.1-192.168.1.255<br>
+            · 单个 IP：123.45.67.89
+          </p>
+          <textarea id="disguiseIPs" rows="4" placeholder="每行一条规则，例如：&#10;192.168.1.0/24&#10;10.0.0.1-10.0.0.255&#10;123.45.67.89" style="width:100%;background:var(--bg-tertiary);border:1px solid var(--border-color);border-radius:8px;padding:12px;color:var(--text-primary);font-size:13px;font-family:monospace;resize:vertical;"></textarea>
+          <button onclick="saveDisguiseIPs()" style="margin-top:12px;padding:8px 20px;background:var(--accent-color);color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:13px;font-weight:500;">保存 IP 列表</button>
         </div>
       </div>
 
@@ -1342,6 +1364,12 @@ loadAccountInfo();
           status.style.color = 'var(--text-secondary)';
         }
       }
+      // Render IP list
+      const ipsTextarea = document.getElementById('disguiseIPs');
+      if (ipsTextarea) {
+        const ips = appData.siteInfo?.disguiseIPs || [];
+        ipsTextarea.value = ips.join('\n');
+      }
     }
 
     async function toggleDisguise(enabled) {
@@ -1372,6 +1400,26 @@ loadAccountInfo();
       } catch (err) {
         showToast('操作失败', 'error');
         toggle.checked = !enabled;
+      }
+    }
+
+    async function saveDisguiseIPs() {
+      const textarea = document.getElementById('disguiseIPs');
+      const ips = textarea.value.split('\n').map(ip => ip.trim()).filter(ip => ip);
+      try {
+        const res = await authFetch('/api/admin/disguise', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ips })
+        });
+        if (res.ok) {
+          appData.siteInfo.disguiseIPs = ips;
+          showToast('IP 列表已保存');
+        } else {
+          showToast('保存失败', 'error');
+        }
+      } catch (err) {
+        showToast('保存失败', 'error');
       }
     }
 
@@ -1508,8 +1556,13 @@ loadAccountInfo();
 
     function renderWorks() {
       const tbody = document.getElementById('worksTableBody');
-      tbody.innerHTML = (appData.works || []).map(w => `
-        <tr style="${w.hidden ? 'opacity:0.5;' : ''}">
+      const works = appData.works || [];
+      tbody.innerHTML = works.map((w, idx) => `
+        <tr draggable="true" data-work-id="${w.id}" style="${w.hidden ? 'opacity:0.5;' : ''}cursor:grab;">
+          <td style="white-space:nowrap;">
+            <button class="btn btn-secondary btn-sm" style="padding:2px 6px;font-size:11px;" onclick="moveWork(${idx},-1)" ${idx === 0 ? 'disabled' : ''}>↑</button>
+            <button class="btn btn-secondary btn-sm" style="padding:2px 6px;font-size:11px;" onclick="moveWork(${idx},1)" ${idx === works.length - 1 ? 'disabled' : ''}>↓</button>
+          </td>
           <td><img class="img-preview" src="${w.image}" alt="${w.name}"></td>
           <td><strong>${w.name}</strong>${w.hidden ? ' <span style="color:#e74c3c;font-size:12px;">（已隐藏）</span>' : ''}</td>
           <td><span class="tag">${w.tags}</span></td>
@@ -1523,6 +1576,73 @@ loadAccountInfo();
           </td>
         </tr>
       `).join('');
+      // 拖拽排序
+      initWorksDragSort(tbody);
+    }
+
+    // 上移/下移
+    async function moveWork(idx, dir) {
+      const works = appData.works;
+      const targetIdx = idx + dir;
+      if (targetIdx < 0 || targetIdx >= works.length) return;
+      [works[idx], works[targetIdx]] = [works[targetIdx], works[idx]];
+      renderWorks();
+      await saveWorksOrder();
+    }
+
+    // 保存排序到后端
+    async function saveWorksOrder() {
+      const ids = (appData.works || []).map(w => w.id);
+      try {
+        await authFetch('/api/admin/works/reorder', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids })
+        });
+        showToast('排序已保存');
+      } catch (err) {
+        showToast('排序保存失败：' + err.message);
+      }
+    }
+
+    // 拖拽排序初始化
+    function initWorksDragSort(tbody) {
+      let dragRow = null;
+      tbody.querySelectorAll('tr[draggable]').forEach(row => {
+        row.addEventListener('dragstart', (e) => {
+          dragRow = row;
+          row.style.opacity = '0.4';
+          e.dataTransfer.effectAllowed = 'move';
+        });
+        row.addEventListener('dragend', () => {
+          row.style.opacity = row.style.opacity === '0.4' ? '' : row.style.opacity;
+          dragRow = null;
+          tbody.querySelectorAll('tr').forEach(r => r.classList.remove('drag-over'));
+        });
+        row.addEventListener('dragover', (e) => {
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'move';
+          row.classList.add('drag-over');
+        });
+        row.addEventListener('dragleave', () => {
+          row.classList.remove('drag-over');
+        });
+        row.addEventListener('drop', async (e) => {
+          e.preventDefault();
+          row.classList.remove('drag-over');
+          if (!dragRow || dragRow === row) return;
+          const fromId = parseInt(dragRow.dataset.workId);
+          const toId = parseInt(row.dataset.workId);
+          const works = appData.works;
+          const fromIdx = works.findIndex(w => w.id === fromId);
+          const toIdx = works.findIndex(w => w.id === toId);
+          if (fromIdx === -1 || toIdx === -1) return;
+          const [moved] = works.splice(fromIdx, 1);
+          works.splice(toIdx, 0, moved);
+          renderWorks();
+          await saveWorksOrder();
+        });
+      });
     }
 
     function renderServices() {}
@@ -1580,10 +1700,11 @@ function formatSize(bytes) {
   return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
 }
 
-// 图片压缩（超过4MB自动压缩）
-async function compressImage(file, maxSizeMB = 4) {
-  if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+// 图片压缩（超过4.4MB自动压缩，不超过不压缩）
+async function compressImage(file, maxSizeMB = 4.4) {
   if (!file.type.startsWith('image/')) return { file, compressed: false };
+  if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+  // 执行压缩
   const originalSize = file.size;
   updateProgress(0, `压缩中... 原始大小 ${formatSize(originalSize)}`);
   const compressed = await new Promise((resolve) => {
@@ -1607,6 +1728,10 @@ async function compressImage(file, maxSizeMB = 4) {
     };
     img.src = URL.createObjectURL(file);
   });
+  // 如果压缩后反而更大，就用原图
+  if (compressed.size >= originalSize) {
+    return { file, compressed: false };
+  }
   updateProgress(0, `已压缩: ${formatSize(originalSize)} → ${formatSize(compressed.size)}`);
   return { file: compressed, compressed: true, originalSize, compressedSize: compressed.size };
 }
@@ -2273,13 +2398,14 @@ try {
     }
 
     async function uploadAssetFiles(input) {
-      const files = input.files;
+      const files = Array.from(input.files);
       if (!files.length) return;
       let successCount = 0;
       for (let i = 0; i < files.length; i++) {
+        let file = files[i];
         try {
           const formData = new FormData();
-          formData.append('image', files[i]);
+          formData.append('image', file);
           const res = await authFetch('/api/upload', {
             method: 'POST',
             body: formData

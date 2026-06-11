@@ -608,11 +608,13 @@ padding: 0 180px;
       return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     }
 
-    // Compress image if over 4MB
-    async function compressImage(file, maxSizeMB = 1.5) {
+    // 图片压缩（超过4.4MB自动压缩，不超过不压缩）
+    async function compressImage(file, maxSizeMB = 4.4) {
       if (!file.type.startsWith('image/')) return { file, compressed: false };
-      // Skip compression for small files (under 200KB) or GIFs
-      if (file.size <= 200 * 1024 || file.type === 'image/gif') return { file, compressed: false };
+      // Skip GIFs
+      if (file.type === 'image/gif') return { file, compressed: false };
+      if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
+      // 执行压缩
       const originalSize = file.size;
       updateProgress(0, `压缩中... 原始大小 ${formatSize(originalSize)}`);
       const compressed = await new Promise((resolve) => {
@@ -687,9 +689,9 @@ padding: 0 180px;
     }
 
 
-    // Compress video using Canvas + MediaRecorder (target: under 4.2MB for server upload)
+    // Compress video using Canvas + MediaRecorder (target: under 4.4MB for server upload)
     // Strategy: keep resolution as high as possible, use high bitrate, only scale if truly needed
-    async function compressVideo(file, maxSizeMB = 4.2) {
+    async function compressVideo(file, maxSizeMB = 4.4) {
       if (file.size <= maxSizeMB * 1024 * 1024) return { file, compressed: false };
       const originalSize = file.size;
       updateProgress(0, `视频压缩中... 原始大小 ${formatSize(originalSize)}`);
@@ -1169,8 +1171,8 @@ padding: 0 180px;
           if (!file) return;
           createProgressOverlay();
           try {
-            // Compress video to fit server upload limit (4.2MB)
-            if (file.size > 4.2 * 1024 * 1024) {
+            // Compress video to fit server upload limit (4.4MB)
+            if (file.size > 4.4 * 1024 * 1024) {
               try {
                 updateProgress(0, '开始压缩视频...');
                 const result = await Promise.race([
@@ -1348,8 +1350,8 @@ padding: 0 180px;
           if (!file) return;
           createProgressOverlay();
           try {
-            // Compress video to fit server upload limit (4.2MB)
-            if (file.size > 4.2 * 1024 * 1024) {
+            // Compress video to fit server upload limit (4.4MB)
+            if (file.size > 4.4 * 1024 * 1024) {
               try {
                 updateProgress(0, '开始压缩视频...');
                 const result = await Promise.race([
