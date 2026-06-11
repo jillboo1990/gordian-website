@@ -3,7 +3,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const crypto = require('crypto');
-const { put, list, del } = require('@vercel/blob');
+const { S3Client, PutObjectCommand, GetObjectCommand, ListObjectsV2Command, DeleteObjectCommand, DeleteObjectsCommand } = require('@aws-sdk/client-s3');
 
 const app = express();
 const PORT = process.env.PORT || 4000;
@@ -17,59 +17,91 @@ const asyncHandler = (fn) => (req, res, next) => {
 
 // ===== Environment Detection =====
 const IS_VERCEL = !!process.env.VERCEL;
-const BLOB_TOKEN = process.env.BLOB_READ_WRITE_TOKEN;
 
-// ===== Blob Storage Helpers =====
-async function blobReadJSON(filename, retries = 3) {
+// ===== Cloudflare R2 Configuration =====
+const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET = process.env.R2_BUCKET || 'gordian-site';
+const R2_PUBLIC_URL = process.env.R2_PUBLIC_URL || '';
+
+const r2Client = (R2_ACCOUNT_ID && R2_ACCESS_KEY_ID && R2_SECRET_ACCESS_KEY) ? new S3Client({
+  region: 'auto',
+  endpoint: `https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+  credentials: {
+    accessKeyId: R2_ACCESS_KEY_ID,
+    secretAccessKey: R2_SECRET_ACCESS_KEY,
+  },
+}) : null;
+
+const USE_R2 = IS_VERCEL && !!r2Client;
+
+// ===== R2 Storage Helpers =====
+async function r2ReadJSON(key, retries = 3) {
   for (let attempt = 1; attempt <= retries; attempt++) {
     try {
-      const { blobs } = await list({ prefix: filename, token: BLOB_TOKEN });
-      if (blobs.length === 0) return null; // Truly empty, no retry needed
-      // Exact match only - prevent prefix collision (e.g. data.json.bak)
-      const exact = blobs.find(b => b.pathname === filename);
-      if (!exact) return null;
-      const res = await fetch(exact.url + '?t=' + Date.now(), {
-        headers: { 'Cache-Control': 'no-cache' }
-      });
-      if (!res.ok) throw new Error(`Fetch failed: ${res.status}`);
-      const text = await res.text();
+      const resp = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+      const text = await resp.Body.transformToString();
       if (!text || text.trim().length === 0) throw new Error('Empty response');
       return JSON.parse(text);
     } catch (err) {
-      console.error(`Blob read error (${filename}), attempt ${attempt}/${retries}:`, err.message);
+      if (err.name === 'NoSuchKey') return null;
+      console.error(`R2 read error (${key}), attempt ${attempt}/${retries}:`, err.message);
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, 500 * attempt)); // Progressive backoff
+        await new Promise(r => setTimeout(r, 500 * attempt));
       }
     }
   }
-  console.error(`Blob read FAILED after ${retries} attempts: ${filename}`);
+  console.error(`R2 read FAILED after ${retries} attempts: ${key}`);
   return null;
 }
 
-async function blobWriteJSON(filename, data) {
-  try {
-    const jsonStr = JSON.stringify(data, null, 2);
-    // Sanity check: refuse to write empty or obviously corrupted data
-    if (!jsonStr || jsonStr.length < 10) {
-      throw new Error(`Refusing to write near-empty data to ${filename} (${jsonStr.length} bytes)`);
-    }
-    // For data.json: verify critical fields exist before overwriting
-    if (filename === 'data.json') {
-      if (!data.siteInfo || !data.works || !Array.isArray(data.works)) {
-        throw new Error('Data integrity check failed: missing siteInfo or works array');
-      }
-    }
-    await put(filename, jsonStr, {
-      access: 'public',
-      token: BLOB_TOKEN,
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true
-    });
-  } catch (err) {
-    console.error(`Blob write error (${filename}):`, err.message);
-    throw err;
+async function r2WriteJSON(key, data) {
+  const jsonStr = JSON.stringify(data, null, 2);
+  if (!jsonStr || jsonStr.length < 10) {
+    throw new Error(`Refusing to write near-empty data to ${key} (${jsonStr.length} bytes)`);
   }
+  if (key === 'data.json') {
+    if (!data.siteInfo || !data.works || !Array.isArray(data.works)) {
+      throw new Error('Data integrity check failed: missing siteInfo or works array');
+    }
+  }
+  await r2Client.send(new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    Body: jsonStr,
+    ContentType: 'application/json',
+  }));
+}
+
+async function r2Upload(key, body, contentType) {
+  await r2Client.send(new PutObjectCommand({
+    Bucket: R2_BUCKET,
+    Key: key,
+    Body: body,
+    ContentType: contentType,
+  }));
+  return `${R2_PUBLIC_URL}/${key}`;
+}
+
+async function r2Delete(key) {
+  await r2Client.send(new DeleteObjectCommand({ Bucket: R2_BUCKET, Key: key }));
+}
+
+async function r2List(prefix) {
+  let allObjects = [];
+  let continuationToken;
+  do {
+    const resp = await r2Client.send(new ListObjectsV2Command({
+      Bucket: R2_BUCKET,
+      Prefix: prefix,
+      MaxKeys: 1000,
+      ContinuationToken: continuationToken,
+    }));
+    if (resp.Contents) allObjects = allObjects.concat(resp.Contents);
+    continuationToken = resp.IsTruncated ? resp.NextContinuationToken : undefined;
+  } while (continuationToken);
+  return allObjects;
 }
 
 // ===== Data Read/Write (auto-switch between local & blob) =====
@@ -91,23 +123,28 @@ const MAX_SNAPSHOTS = 20;
 let snapshotCount = 0;
 
 async function autoSnapshot(currentData) {
-  if (!IS_VERCEL || !BLOB_TOKEN) return; // Only on Vercel
+  if (!USE_R2) return;
   try {
     const ts = Date.now();
-    await put(SNAPSHOT_PREFIX + ts + '.json', JSON.stringify(currentData), {
-      access: 'public', token: BLOB_TOKEN, contentType: 'application/json',
-      addRandomSuffix: false, allowOverwrite: true
-    });
+    await r2Client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: SNAPSHOT_PREFIX + ts + '.json',
+      Body: JSON.stringify(currentData),
+      ContentType: 'application/json',
+    }));
     snapshotCount++;
     // Cleanup old snapshots periodically (every 10 writes)
     if (snapshotCount % 10 === 0) {
-      const { blobs } = await list({ prefix: SNAPSHOT_PREFIX, token: BLOB_TOKEN, limit: 100 });
-      if (blobs.length > MAX_SNAPSHOTS) {
-        const toDelete = blobs
-          .sort((a, b) => new Date(a.uploadedAt) - new Date(b.uploadedAt))
-          .slice(0, blobs.length - MAX_SNAPSHOTS);
+      const objects = await r2List(SNAPSHOT_PREFIX);
+      if (objects.length > MAX_SNAPSHOTS) {
+        const toDelete = objects
+          .sort((a, b) => new Date(a.LastModified) - new Date(b.LastModified))
+          .slice(0, objects.length - MAX_SNAPSHOTS);
         if (toDelete.length > 0) {
-          await del(toDelete.map(b => b.url), { token: BLOB_TOKEN });
+          await r2Client.send(new DeleteObjectsCommand({
+            Bucket: R2_BUCKET,
+            Delete: { Objects: toDelete.map(o => ({ Key: o.Key })) }
+          }));
         }
       }
     }
@@ -117,47 +154,21 @@ async function autoSnapshot(currentData) {
 }
 
 async function readData() {
-  if (IS_VERCEL && BLOB_TOKEN) {
-    // On Vercel: ONLY read from Blob. NEVER fall back to local file.
-    const data = await blobReadJSON('data.json');
+  if (USE_R2) {
+    const data = await r2ReadJSON('data.json');
     if (data) return data;
-    // Check if Blob data.json truly doesn't exist vs read failure
-    const { blobs } = await list({ prefix: 'data.json', token: BLOB_TOKEN });
-    const exactMatch = blobs.find(b => b.pathname === 'data.json');
-    if (!exactMatch) {
-      // data.json missing from Blob! Try to recover from latest snapshot first
-      console.warn('data.json missing from Blob! Attempting snapshot recovery...');
-      const { blobs: snaps } = await list({ prefix: SNAPSHOT_PREFIX, token: BLOB_TOKEN, limit: 100 });
-      if (snaps.length > 0) {
-        // Use the most recent snapshot
-        const latest = snaps.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt))[0];
-        try {
-          const snapRes = await fetch(latest.url + '?t=' + Date.now());
-          const snapData = await snapRes.json();
-          if (snapData && snapData.siteInfo && snapData.works) {
-            console.warn('Recovered from snapshot: ' + latest.pathname);
-            await blobWriteJSON('data.json', snapData);
-            return snapData;
-          }
-        } catch (e) {
-          console.error('Snapshot recovery failed:', e.message);
-        }
-      }
-      // No snapshots available - truly first deploy, use local file
-      console.warn('First deploy detected: initializing Blob data.json from local file');
-      const localData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
-      await blobWriteJSON('data.json', localData);
-      return localData;
-    }
-    // Blob exists but read failed after retries - do NOT use local file
-    throw new Error('Blob data.json read failed after retries. Refusing to use local fallback.');
+    // data.json not in R2 yet - first deploy, upload from local
+    console.warn('First deploy: initializing R2 data.json from local file');
+    const localData = JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
+    await r2WriteJSON('data.json', localData);
+    return localData;
   }
   return JSON.parse(fs.readFileSync(DATA_FILE, 'utf8'));
 }
 
 async function writeData(data) {
-  if (IS_VERCEL && BLOB_TOKEN) {
-    await blobWriteJSON('data.json', data);
+  if (USE_R2) {
+    await r2WriteJSON('data.json', data);
   } else {
     fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2));
   }
@@ -176,20 +187,19 @@ async function safeUpdateData(modifierFn) {
 }
 
 async function readAuth() {
-  if (IS_VERCEL && BLOB_TOKEN) {
-    const auth = await blobReadJSON('auth.json');
+  if (USE_R2) {
+    const auth = await r2ReadJSON('auth.json');
     if (auth) return auth;
-    // First time: initialize Blob auth from local file, then return it
     const localAuth = JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
-    await blobWriteJSON('auth.json', localAuth);
+    await r2WriteJSON('auth.json', localAuth);
     return localAuth;
   }
   return JSON.parse(fs.readFileSync(AUTH_FILE, 'utf8'));
 }
 
 async function writeAuth(data) {
-  if (IS_VERCEL && BLOB_TOKEN) {
-    await blobWriteJSON('auth.json', data);
+  if (USE_R2) {
+    await r2WriteJSON('auth.json', data);
   } else {
     fs.writeFileSync(AUTH_FILE, JSON.stringify(data, null, 2));
   }
@@ -246,9 +256,9 @@ function generateToken() {
 }
 
 async function loadSessions() {
-  if (!IS_VERCEL || !BLOB_TOKEN || sessionsLoaded) return;
+  if (!USE_R2 || sessionsLoaded) return;
   try {
-    const data = await blobReadJSON('sessions.json');
+    const data = await r2ReadJSON('sessions.json');
     if (data && Array.isArray(data)) {
       const now = Date.now();
       // Filter sessions older than 7 days
@@ -260,10 +270,10 @@ async function loadSessions() {
 }
 
 async function saveSessions() {
-  if (!IS_VERCEL || !BLOB_TOKEN) return;
+  if (!USE_R2) return;
   const arr = [];
   sessions.forEach((val, key) => arr.push({ token: key, ...val }));
-  await blobWriteJSON('sessions.json', arr);
+  await r2WriteJSON('sessions.json', arr);
 }
 
 async function authMiddleware(req, res, next) {
@@ -392,7 +402,7 @@ function validateUploadContent(file, kind) {
 }
 
 const upload = multer({
-  storage: IS_VERCEL ? memoryStorage : storage,
+  storage: USE_R2 ? memoryStorage : storage,
   limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (hasAllowedExt(file, ALLOWED_MEDIA_EXTS) && hasAllowedMediaMime(file)) {
@@ -522,16 +532,12 @@ app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res)
   }
 
   try {
-    if (IS_VERCEL && BLOB_TOKEN) {
-      // Upload to Vercel Blob
+    if (USE_R2) {
+      // Upload to Cloudflare R2
       const ext = path.extname(req.file.originalname);
-      const filename = 'uploads/' + Date.now() + '-' + Math.round(Math.random() * 1e6) + ext;
-      const blob = await put(filename, req.file.buffer, {
-        access: 'public',
-        token: BLOB_TOKEN,
-        contentType: req.file.mimetype
-      });
-      res.json({ success: true, url: blob.url });
+      const key = 'uploads/' + Date.now() + '-' + Math.round(Math.random() * 1e6) + ext;
+      const url = await r2Upload(key, req.file.buffer, req.file.mimetype);
+      res.json({ success: true, url });
     } else {
       // Local file path
       const url = '/uploads/' + req.file.filename;
@@ -545,7 +551,7 @@ app.post('/api/upload', authMiddleware, upload.single('image'), async (req, res)
 
 // ===== Resume File Upload =====
 const resumeUpload = multer({
-  storage: IS_VERCEL ? memoryStorage : storage,
+  storage: USE_R2 ? memoryStorage : storage,
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     if (hasAllowedExt(file, ALLOWED_RESUME_EXTS)) {
@@ -565,17 +571,10 @@ app.post('/api/upload/resume', authMiddleware, resumeUpload.single('file'), asyn
   }
   try {
     let url;
-    if (IS_VERCEL && BLOB_TOKEN) {
+    if (USE_R2) {
       const ext = path.extname(req.file.originalname);
-      const filename = 'uploads/resume-' + Date.now() + ext;
-      const blob = await put(filename, req.file.buffer, {
-        access: 'public',
-        token: BLOB_TOKEN,
-        contentType: req.file.mimetype,
-        addRandomSuffix: false,
-        allowOverwrite: true
-      });
-      url = blob.url;
+      const key = 'uploads/resume-' + Date.now() + ext;
+      url = await r2Upload(key, req.file.buffer, req.file.mimetype);
     } else {
       url = '/uploads/' + req.file.filename;
     }
@@ -850,11 +849,11 @@ app.put('/api/admin/services', authMiddleware, asyncHandler(async (req, res) => 
 }));
 
 // ===== Asset Manager =====
-// List all uploaded assets from Vercel Blob
+// List all uploaded assets
 app.get('/api/admin/assets', authMiddleware, async (req, res) => {
   res.set('Cache-Control', 'no-store');
   try {
-    if (!IS_VERCEL || !BLOB_TOKEN) {
+    if (!USE_R2) {
       // Local mode: read uploads directory
       const uploadsDir = path.join(__dirname, 'public', 'uploads');
       if (!fs.existsSync(uploadsDir)) return res.json({ assets: [] });
@@ -874,22 +873,16 @@ app.get('/api/admin/assets', authMiddleware, async (req, res) => {
       assets.sort((a, b) => new Date(b.uploadedAt) - new Date(a.uploadedAt));
       return res.json({ assets });
     }
-    // Vercel Blob: list all files with uploads/ prefix
-    let allBlobs = [];
-    let cursor;
-    do {
-      const result = await list({ prefix: 'uploads/', token: BLOB_TOKEN, limit: 1000, cursor });
-      allBlobs = allBlobs.concat(result.blobs);
-      cursor = result.cursor;
-    } while (cursor);
-    const assets = allBlobs.map(b => {
-      const ext = path.extname(b.pathname).toLowerCase();
+    // R2: list all files with uploads/ prefix
+    const objects = await r2List('uploads/');
+    const assets = objects.map(obj => {
+      const ext = path.extname(obj.Key).toLowerCase();
       const isVideo = ['.mp4', '.webm', '.mov', '.avi'].includes(ext);
       return {
-        url: b.url,
-        pathname: b.pathname,
-        size: b.size,
-        uploadedAt: b.uploadedAt,
+        url: `${R2_PUBLIC_URL}/${obj.Key}`,
+        pathname: obj.Key,
+        size: obj.Size,
+        uploadedAt: obj.LastModified ? obj.LastModified.toISOString() : '',
         type: isVideo ? 'video' : 'image'
       };
     });
@@ -906,8 +899,10 @@ app.delete('/api/admin/assets', authMiddleware, async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) return res.status(400).json({ error: '缺少 url 参数' });
-    if (IS_VERCEL && BLOB_TOKEN) {
-      await del(url, { token: BLOB_TOKEN });
+    if (USE_R2) {
+      // Extract key from R2 public URL
+      const key = url.replace(R2_PUBLIC_URL + '/', '');
+      await r2Delete(key);
     } else {
       // Local mode
       const filename = url.replace('/uploads/', '');
@@ -924,28 +919,23 @@ app.delete('/api/admin/assets', authMiddleware, async (req, res) => {
 // ===== Backup & Restore =====
 const BACKUP_PREFIX = 'backups/';
 
-// Create a backup (includes data.json + asset URL list, never auth.json)
+// Create a backup
 app.post('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
   const data = await readData();
   const now = new Date();
   const timestamp = now.toISOString().replace(/[:.]/g, '-');
   const label = req.body.label || '';
 
-  // Collect all uploaded asset URLs from Vercel Blob
+  // Collect all uploaded asset URLs
   let assets = [];
-  if (IS_VERCEL && BLOB_TOKEN) {
-    let cursor;
-    do {
-      const result = await list({ prefix: 'uploads/', token: BLOB_TOKEN, limit: 1000, cursor });
-      assets = assets.concat(result.blobs.map(b => ({
-        url: b.url,
-        pathname: b.pathname,
-        size: b.size,
-        contentType: b.contentType || '',
-        uploadedAt: b.uploadedAt
-      })));
-      cursor = result.cursor;
-    } while (cursor);
+  if (USE_R2) {
+    const objects = await r2List('uploads/');
+    assets = objects.map(obj => ({
+      url: `${R2_PUBLIC_URL}/${obj.Key}`,
+      pathname: obj.Key,
+      size: obj.Size,
+      uploadedAt: obj.LastModified ? obj.LastModified.toISOString() : ''
+    }));
   }
 
   const backupMeta = {
@@ -954,23 +944,21 @@ app.post('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => 
     createdAt: now.toISOString(),
     worksCount: (data.works || []).length,
     assetsCount: assets.length,
-    size: 0 // will be calculated below
+    size: 0
   };
 
   const backupContent = { meta: backupMeta, data, assets };
   const backupJSON = JSON.stringify(backupContent, null, 2);
   backupMeta.size = backupJSON.length;
-  // Re-serialize with final size
   const finalJSON = JSON.stringify({ ...backupContent, meta: backupMeta }, null, 2);
 
-  if (IS_VERCEL && BLOB_TOKEN) {
-    await put(BACKUP_PREFIX + timestamp + '.json', finalJSON, {
-      access: 'public',
-      token: BLOB_TOKEN,
-      contentType: 'application/json',
-      addRandomSuffix: false,
-      allowOverwrite: true
-    });
+  if (USE_R2) {
+    await r2Client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: BACKUP_PREFIX + timestamp + '.json',
+      Body: finalJSON,
+      ContentType: 'application/json',
+    }));
   } else {
     const backupDir = path.join(__dirname, 'backups');
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
@@ -983,23 +971,15 @@ app.post('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => 
 app.get('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
   res.set('Cache-Control', 'no-store');
   let backups = [];
-  if (IS_VERCEL && BLOB_TOKEN) {
-    let allBlobs = [];
-    let cursor;
-    do {
-      const result = await list({ prefix: BACKUP_PREFIX, token: BLOB_TOKEN, limit: 1000, cursor });
-      allBlobs = allBlobs.concat(result.blobs);
-      cursor = result.cursor;
-    } while (cursor);
-    // Read meta from each backup
-    for (const blob of allBlobs) {
+  if (USE_R2) {
+    const objects = await r2List(BACKUP_PREFIX);
+    for (const obj of objects) {
       try {
-        const r = await fetch(blob.url + '?t=' + Date.now());
-        const content = await r.json();
+        const resp = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: obj.Key }));
+        const content = JSON.parse(await resp.Body.transformToString());
         backups.push(content.meta);
       } catch (e) {
-        // Skip corrupted backups
-        backups.push({ id: blob.pathname.replace(BACKUP_PREFIX, '').replace('.json', ''), label: '(损坏)', createdAt: blob.uploadedAt, worksCount: 0, assetsCount: 0, size: blob.size });
+        backups.push({ id: obj.Key.replace(BACKUP_PREFIX, '').replace('.json', ''), label: '(损坏)', createdAt: obj.LastModified ? obj.LastModified.toISOString() : '', worksCount: 0, assetsCount: 0, size: obj.Size });
       }
     }
   } else {
@@ -1020,16 +1000,16 @@ app.get('/api/admin/backups', authMiddleware, asyncHandler(async (req, res) => {
   res.json({ backups });
 }));
 
-// Restore a backup (restores data.json only; old backups may still contain auth but it is ignored)
+// Restore a backup
 app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (req, res) => {
   const backupId = req.params.id;
   let backupContent;
 
-  if (IS_VERCEL && BLOB_TOKEN) {
-    const { blobs } = await list({ prefix: BACKUP_PREFIX + backupId, token: BLOB_TOKEN });
-    if (blobs.length === 0) return res.status(404).json({ error: '备份不存在' });
-    const r = await fetch(blobs[0].url + '?t=' + Date.now());
-    backupContent = await r.json();
+  if (USE_R2) {
+    const objects = await r2List(BACKUP_PREFIX + backupId);
+    if (objects.length === 0) return res.status(404).json({ error: '备份不存在' });
+    const resp = await r2Client.send(new GetObjectCommand({ Bucket: R2_BUCKET, Key: objects[0].Key }));
+    backupContent = JSON.parse(await resp.Body.transformToString());
   } else {
     const filepath = path.join(__dirname, 'backups', backupId + '.json');
     if (!fs.existsSync(filepath)) return res.status(404).json({ error: '备份不存在' });
@@ -1040,21 +1020,17 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
     return res.status(400).json({ error: '备份数据损坏' });
   }
 
-  // Auto-backup current state before restoring (full backup including auth & assets)
+  // Auto-backup current state before restoring
   const currentData = await readData();
   const autoBackupTimestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
   let currentAssets = [];
-  if (IS_VERCEL && BLOB_TOKEN) {
-    let cursor;
-    do {
-      const result = await list({ prefix: 'uploads/', token: BLOB_TOKEN, limit: 1000, cursor });
-      currentAssets = currentAssets.concat(result.blobs.map(b => ({
-        url: b.url, pathname: b.pathname, size: b.size,
-        contentType: b.contentType || '', uploadedAt: b.uploadedAt
-      })));
-      cursor = result.cursor;
-    } while (cursor);
+  if (USE_R2) {
+    const objects = await r2List('uploads/');
+    currentAssets = objects.map(obj => ({
+      url: `${R2_PUBLIC_URL}/${obj.Key}`, pathname: obj.Key, size: obj.Size,
+      uploadedAt: obj.LastModified ? obj.LastModified.toISOString() : ''
+    }));
   }
 
   const autoBackupContent = {
@@ -1071,10 +1047,13 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
   autoBackupContent.meta.size = autoJSON.length;
   const autoFinalJSON = JSON.stringify(autoBackupContent, null, 2);
 
-  if (IS_VERCEL && BLOB_TOKEN) {
-    await put(BACKUP_PREFIX + autoBackupTimestamp + '.json', autoFinalJSON, {
-      access: 'public', token: BLOB_TOKEN, contentType: 'application/json', addRandomSuffix: false, allowOverwrite: true
-    });
+  if (USE_R2) {
+    await r2Client.send(new PutObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: BACKUP_PREFIX + autoBackupTimestamp + '.json',
+      Body: autoFinalJSON,
+      ContentType: 'application/json',
+    }));
   } else {
     const backupDir = path.join(__dirname, 'backups');
     if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
@@ -1084,7 +1063,6 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
   // Restore data.json
   await writeData(backupContent.data);
 
-  // Report on asset status
   let assetWarning = '';
   if (backupContent.assets && backupContent.assets.length > 0) {
     assetWarning = `（备份中包含 ${backupContent.assets.length} 个资源文件记录，数据已恢复）`;
@@ -1097,10 +1075,10 @@ app.post('/api/admin/backups/:id/restore', authMiddleware, asyncHandler(async (r
 app.delete('/api/admin/backups/:id', authMiddleware, async (req, res) => {
   try {
     const backupId = req.params.id;
-    if (IS_VERCEL && BLOB_TOKEN) {
-      const { blobs } = await list({ prefix: BACKUP_PREFIX + backupId, token: BLOB_TOKEN });
-      if (blobs.length > 0) {
-        await del(blobs.map(b => b.url), { token: BLOB_TOKEN });
+    if (USE_R2) {
+      const objects = await r2List(BACKUP_PREFIX + backupId);
+      if (objects.length > 0) {
+        await r2Delete(objects[0].Key);
       }
     } else {
       const filepath = path.join(__dirname, 'backups', backupId + '.json');
