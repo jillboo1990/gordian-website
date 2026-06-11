@@ -409,12 +409,13 @@
         'STRONG', 'B', 'EM', 'I', 'U', 'S',
         'UL', 'OL', 'LI', 'BLOCKQUOTE',
         'IMG', 'VIDEO', 'SOURCE', 'A',
-        'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD'
+        'TABLE', 'THEAD', 'TBODY', 'TR', 'TH', 'TD',
+        'DETAILS', 'SUMMARY'
       ]);
       const allowedAttrs = new Set([
         'class', 'alt', 'title', 'src', 'href', 'target', 'rel',
-        'controls', 'preload', 'autoplay', 'muted', 'loop',
-        'colspan', 'rowspan'
+        'controls', 'preload', 'autoplay', 'muted', 'loop', 'playsinline',
+        'colspan', 'rowspan', 'style'
       ]);
 
       template.content.querySelectorAll('*').forEach(node => {
